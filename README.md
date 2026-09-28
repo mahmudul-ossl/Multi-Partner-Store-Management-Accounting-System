@@ -220,3 +220,156 @@ Approval thresholds should be configurable rather than hard-coded.
 The following rules are mandatory:
 
 1. A user cannot approve their own tr
+
+---
+
+# Phase 1 setup
+
+The product specification above is preserved as provided. It ends mid-sentence in the source document. Everything from here is the Phase 1 setup and architecture guide for the implemented application.
+
+Phase 1 delivers the Laravel application, Docker environment, authentication, users, roles and permissions, partner records (including an optional linked user), the audit log, and the admin UI. Investments, withdrawals, the approval workflow, inventory, sales, and the ledger are intentionally not built yet. The enums, permission names, money helper, self-approval guard, and balanced-entry guard are in place so those phases can plug in without renaming the access model.
+
+Stack actually installed: **Laravel 13.10.1** (framework 13.33.0), PHP 8.3, Inertia.js 3, Vue 3, Tailwind CSS 4, Spatie Laravel Permission 8, MySQL 8, Redis, and the database queue/notification tables.
+
+## Installation
+
+Requirements on the host if you are not using Docker: PHP 8.3+ with `pdo_mysql`, `bcmath`, `intl`, `zip`, and `redis`; Composer 2; Node.js 22+; MySQL 8; Redis.
+
+```bash
+cp .env.example .env
+composer install
+php artisan key:generate
+npm ci
+npm run build
+```
+
+Set `SEED_SUPER_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` in `.env` before seeding. The seeder refuses to run when those values are empty. The values in `.env.example` are for a local demo only. Change them before any shared environment.
+
+## Docker Setup
+
+`docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, and a `queue` worker. phpMyAdmin is optional and stays off unless you opt in:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+npm ci && npm run build
+docker compose up -d --build
+docker compose exec app php artisan db:seed --force
+```
+
+Inside the containers, `DB_HOST` and `REDIS_HOST` are overridden to `mysql` and `redis`. The app container runs migrations on start. Seed is a separate command so production boots do not reload demo people.
+
+Open the app at `http://localhost:8080` (or `APP_PORT`).
+
+```bash
+docker compose --profile tools up -d
+```
+
+That also starts phpMyAdmin on `PHPMYADMIN_PORT` (8081 by default).
+
+Build the frontend before the first request. `public/build` is not committed, and nginx serves the mounted project directory.
+
+## Environment Configuration
+
+All credentials and connections come from the environment. Nothing in PHP hard-codes a database password, mail password, or Redis password.
+
+| Variable | Purpose |
+| --- | --- |
+| `APP_NAME`, `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL`, `APP_TIMEZONE` | Application. Timezone defaults to `Asia/Dhaka`. |
+| `APP_CURRENCY`, `APP_CURRENCY_SYMBOL`, `APP_DATE_FORMAT` | `BDT`, `৳`, `d-M-Y` (28-Sep-2026). |
+| `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` | MySQL. Root password is only for the Docker health check and server bootstrap. |
+| `REDIS_CLIENT`, `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_PORT` | Redis. |
+| `CACHE_STORE`, `QUEUE_CONNECTION`, `SESSION_DRIVER` | `redis` in `.env.example`. |
+| `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Mail. New accounts send `AccountCreated` through the queue. |
+| `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD` | Initial seed only. |
+
+To run on the host without Redis, set `CACHE_STORE=database`, `SESSION_DRIVER=database`, and `QUEUE_CONNECTION=database` after migrating.
+
+## Database Setup
+
+```bash
+php artisan migrate --force
+php artisan db:seed --force
+```
+
+Migrations:
+
+| Migration | Tables |
+| --- | --- |
+| `0001_01_01_000000_create_users_table` | `users` (phone, `is_active`, soft deletes), `password_reset_tokens`, `sessions` |
+| `0001_01_01_000001_create_cache_table` | `cache`, `cache_locks` |
+| `0001_01_01_000002_create_jobs_table` | `jobs`, `job_batches`, `failed_jobs` |
+| `2026_09_28_105336_create_permission_tables` | Spatie `permissions`, `roles`, and pivots |
+| `2026_09_28_110000_create_notifications_table` | `notifications` |
+| `2026_09_28_110100_create_partners_table` | `partners` |
+| `2026_09_28_110200_create_audit_logs_table` | `audit_logs` (immutable, `created_at` only) |
+
+`partners.ownership_percentage` and `partners.investment_percentage` are separate `decimal(8,4)` columns. Money in later phases must be `decimal(18,2)` via `App\Support\Money`, never float. Primary keys are bigint unsigned. Foreign keys and indexes are declared on the partner user link, status, and audit actor.
+
+## Development Workflow
+
+```bash
+composer run dev
+```
+
+Or, separately:
+
+```bash
+php artisan serve
+npm run dev
+php artisan queue:work
+```
+
+Sign in at `/login`. The sidebar lists Dashboard, Partners, Users, Roles, and Audit log according to the signed-in permissions. Investments, withdrawals, inventory, sales, accounting, and reports are labelled as coming later and are not routes yet.
+
+## Testing
+
+Tests use PHPUnit (Pest 4’s current Laravel plugin requires PHP 8.4; this project targets PHP 8.3). The suite uses in-memory SQLite. `phpunit.xml` supplies the demo seed passwords so they are not hard-coded in PHP.
+
+```bash
+php artisan test
+npm run build
+```
+
+## Security
+
+- Session authentication on the `web` middleware group, which includes Laravel’s `PreventRequestForgery` CSRF middleware.
+- Login failures are rate limited (5 attempts per email and IP, then a lockout).
+- Passwords use Laravel’s hashed cast and must be at least 10 characters with upper, lower, numbers, and symbols.
+- Inactive users cannot sign in. A deactivated session is logged out.
+- Policies authorize every user and partner action on the server. The Vue app only hides controls.
+- A partner-role account can see only the partner row linked to that user.
+- The last Super Admin cannot be demoted, deactivated, or deleted. Users cannot delete themselves.
+- Audit rows redact passwords and cannot be updated or deleted.
+- `App\Services\Approvals\SelfApprovalGuard` throws if a creator tries to approve their own request. Later approval services must call it. The check is not left to the UI.
+
+## Default seeded logins
+
+These match `.env.example`. Replace the passwords before sharing the environment.
+
+| Role | Email | Password variable |
+| --- | --- | --- |
+| Super Admin | `superadmin@mpstore.test` | `SEED_SUPER_ADMIN_PASSWORD` (`SuperAdmin#2026` in the example file) |
+| Admin | `admin@mpstore.test` | `SEED_DEMO_PASSWORD` (`Partner#2026`) |
+| Accountant | `accountant@mpstore.test` | `SEED_DEMO_PASSWORD` |
+| Inventory Manager | `inventory@mpstore.test` | `SEED_DEMO_PASSWORD` |
+| Sales Manager | `sales@mpstore.test` | `SEED_DEMO_PASSWORD` |
+| Viewer | `viewer@mpstore.test` | `SEED_DEMO_PASSWORD` |
+| Partner (Rahim Uddin, Fatema Akter, Karim Hossain, Nusrat Jahan, Ayesha Siddiqua) | `rahim.uddin@mpstore.test` and the matching `first.last@mpstore.test` addresses | `SEED_DEMO_PASSWORD` |
+
+Eight partners are seeded. Ownership and investment percentages are different for several of them and both sum to 100. Shahidul Islam, Tanvir Ahmed, and Mahmuda Khatun have no login.
+
+## What you should see
+
+After migrate, seed, and `npm run build`:
+
+1. Sign in as the super admin and land on a dashboard with partner and user counts, plus six cards explicitly marked “Coming in a later phase”.
+2. Partners can be searched, filtered, sorted, and paged. Creating one writes an audit row. Archiving soft-deletes it.
+3. A partner can be linked to one unused user account, and that user cannot be linked twice.
+4. Users can be created with a role. A weak password is rejected. The account-created notification is queued.
+5. Roles shows the full permission matrix. Only Super Admin can open it.
+6. Audit log shows login, logout, and user/partner changes. Amounts elsewhere format as `৳100,000.00`. Dates format as `28-Sep-2026`.
+
+## Later phases
+
+Do not add financial tables by hard-deleting history. The next phase is the approval system with partner investments, withdrawals, and statements. It should use `DocumentStatus` / `ApprovalStatus`, `SelfApprovalGuard`, configurable thresholds stored in the database, and `App\Services\Ledger\BalancedEntry` when journal lines are introduced. Inventory on-hand should come from a `stock_movements` ledger using `StockMovementType`.
