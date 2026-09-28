@@ -66,7 +66,7 @@ final class ApprovalNotifier
     private function sentence(ApprovalRequest $request, string $decision): string
     {
         $document = $request->reference;
-        $date = $document->transaction_date ?? $request->requested_at;
+        $date = $document->transaction_date ?? $document->entry_date ?? $request->requested_at;
 
         return sprintf(
             'New %s %s — Amount %s, Partner %s, Date %s',

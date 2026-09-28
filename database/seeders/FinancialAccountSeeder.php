@@ -30,6 +30,7 @@ class FinancialAccountSeeder extends Seeder
                 'type' => $type,
                 'chart_of_account_id' => $chart->id,
                 'is_active' => true,
+                'is_system' => true,
             ]);
 
             if (! $account->exists) {

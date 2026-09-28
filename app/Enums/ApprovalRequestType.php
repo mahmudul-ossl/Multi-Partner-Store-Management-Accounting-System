@@ -20,6 +20,8 @@ enum ApprovalRequestType: string
     case Refund = 'refund';
     case LargeDiscount = 'large_discount';
     case SalesCancellation = 'sales_cancellation';
+    case ManualJournal = 'manual_journal';
+    case AccountTransfer = 'account_transfer';
     case Other = 'other';
 
     public function label(): string
@@ -35,6 +37,8 @@ enum ApprovalRequestType: string
             self::Refund => 'Refund',
             self::LargeDiscount => 'Large discount',
             self::SalesCancellation => 'Sales cancellation',
+            self::ManualJournal => 'Manual journal',
+            self::AccountTransfer => 'Account transfer',
             self::Other => 'Other',
         };
     }
@@ -50,6 +54,7 @@ enum ApprovalRequestType: string
             self::Purchase => PermissionName::PurchaseApprove,
             self::StockAdjustment => PermissionName::StockAdjustApprove,
             self::Refund, self::LargeDiscount, self::SalesCancellation => PermissionName::SaleCancel,
+            self::ManualJournal, self::AccountTransfer => PermissionName::AccountingManage,
             self::Other => PermissionName::ApprovalApprove,
         };
     }

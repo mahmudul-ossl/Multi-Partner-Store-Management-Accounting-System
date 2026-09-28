@@ -11,9 +11,12 @@ use App\Enums\AuditAction;
 use App\Enums\DocumentStatus;
 use App\Exceptions\ApprovalStateException;
 use App\Exceptions\DuplicateApprovalException;
+use App\Models\AccountTransfer;
 use App\Models\ApprovalRequest;
+use App\Models\ManualJournal;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\Ledger\AccountingPoster;
 use App\Services\Ledger\PartnerFinancePoster;
 use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -26,6 +29,7 @@ final class ApprovalService
         private readonly ApprovalThresholdResolver $thresholds,
         private readonly ApprovalNotifier $notifier,
         private readonly PartnerFinancePoster $poster,
+        private readonly AccountingPoster $accounting,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -100,7 +104,7 @@ final class ApprovalService
             $document->status = DocumentStatus::Approved;
             $document->save();
 
-            $this->poster->post($document, $actor);
+            $this->postDocument($document, $actor);
 
             $this->audit->record(AuditAction::Approved, $document, null, [
                 'status' => DocumentStatus::Approved->value,
@@ -172,6 +176,17 @@ final class ApprovalService
 
             return $request;
         });
+    }
+
+    private function postDocument(Model $document, User $actor): void
+    {
+        if ($document instanceof ManualJournal || $document instanceof AccountTransfer) {
+            $this->accounting->post($document, $actor);
+
+            return;
+        }
+
+        $this->poster->post($document, $actor);
     }
 
     public function syncAmount(Model $document, ApprovalRequestType $type, string|int $amount): void

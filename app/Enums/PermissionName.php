@@ -55,6 +55,7 @@ enum PermissionName: string
 
     case ReportView = 'report.view';
     case AccountingView = 'accounting.view';
+    case AccountingManage = 'accounting.manage';
     case BalanceSheetView = 'balance_sheet.view';
     case ProfitLossView = 'profit_loss.view';
     case PartnerStatementView = 'partner_statement.view';

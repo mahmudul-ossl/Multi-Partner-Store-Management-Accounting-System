@@ -22,6 +22,14 @@ const navigation = computed(() => [
     { label: 'Partners', href: '/partners', show: can('partner.view') },
     { label: 'Users', href: '/users', show: can('user.manage') },
     { label: 'Roles', href: '/roles', show: can('role.manage') },
+    { label: 'Chart of accounts', href: '/accounting/chart', show: can('accounting.view') },
+    { label: 'Cash & bank', href: '/accounting/accounts', show: can('accounting.view') },
+    { label: 'Manual journals', href: '/accounting/manual-journals', show: can('accounting.view') },
+    { label: 'Account transfers', href: '/accounting/transfers', show: can('accounting.view') },
+    { label: 'Journal', href: '/accounting/entries', show: can('accounting.view') },
+    { label: 'General ledger', href: '/accounting/reports/general-ledger', show: can('accounting.view') },
+    { label: 'Cash report', href: '/accounting/reports/cash', show: can('accounting.view') },
+    { label: 'Bank report', href: '/accounting/reports/bank', show: can('accounting.view') },
     { label: 'Approval settings', href: '/settings/approvals', show: can('settings.manage') },
     { label: 'Audit log', href: '/audit-logs', show: can('audit_log.view') },
 ].filter((item) => item.show));
@@ -29,7 +37,6 @@ const navigation = computed(() => [
 const later = [
     'Inventory',
     'Sales',
-    'Accounting',
     'Reports',
 ];
 
@@ -56,6 +63,22 @@ const crumbs = computed(() => {
         items.push({ label: 'Withdrawals', href: '/withdrawals' });
     } else if (path.startsWith('/transfers')) {
         items.push({ label: 'Transfers', href: '/transfers' });
+    } else if (path.startsWith('/accounting/chart')) {
+        items.push({ label: 'Chart of accounts' });
+    } else if (path.startsWith('/accounting/accounts')) {
+        items.push({ label: 'Cash & bank', href: '/accounting/accounts' });
+    } else if (path.startsWith('/accounting/manual-journals')) {
+        items.push({ label: 'Manual journals', href: '/accounting/manual-journals' });
+    } else if (path.startsWith('/accounting/transfers')) {
+        items.push({ label: 'Account transfers', href: '/accounting/transfers' });
+    } else if (path.startsWith('/accounting/entries')) {
+        items.push({ label: 'Journal', href: '/accounting/entries' });
+    } else if (path.startsWith('/accounting/reports/general-ledger')) {
+        items.push({ label: 'General ledger' });
+    } else if (path.startsWith('/accounting/reports/cash')) {
+        items.push({ label: 'Cash report' });
+    } else if (path.startsWith('/accounting/reports/bank')) {
+        items.push({ label: 'Bank report' });
     } else if (path.startsWith('/settings')) {
         items.push({ label: 'Approval settings' });
     }
