@@ -13,7 +13,9 @@ use App\Exceptions\ApprovalStateException;
 use App\Exceptions\DuplicateApprovalException;
 use App\Models\AccountTransfer;
 use App\Models\ApprovalRequest;
+use App\Models\Expense;
 use App\Models\ManualJournal;
+use App\Models\PromotionPartnerExpense;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
 use App\Models\Refund;
@@ -27,6 +29,7 @@ use App\Services\Inventory\InventoryPoster;
 use App\Services\Ledger\AccountingPoster;
 use App\Services\Ledger\PartnerFinancePoster;
 use App\Services\Sales\SalesPoster;
+use App\Services\Spending\SpendingPoster;
 use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +44,7 @@ final class ApprovalService
         private readonly AccountingPoster $accounting,
         private readonly InventoryPoster $inventory,
         private readonly SalesPoster $sales,
+        private readonly SpendingPoster $spending,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -205,6 +209,12 @@ final class ApprovalService
 
         if ($document instanceof Sale || $document instanceof Refund || $document instanceof SalesCancellation) {
             $this->sales->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof PromotionPartnerExpense || $document instanceof Expense) {
+            $this->spending->post($document, $actor);
 
             return;
         }

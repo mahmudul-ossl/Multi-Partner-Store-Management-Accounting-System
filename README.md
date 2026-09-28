@@ -423,6 +423,14 @@ A sale total is subtotal − discount + delivery. Completing it is the only time
 
 Seeded through the real services: four customers, a completed cash sale, a completed sale with discount, delivery, a partial payment and a later receipt, and one messenger-bag order held for a ৳1,500 discount.
 
+## Phase 6
+
+Promotions record a platform, dates, budget, and status. `actual_amount` is the sum of approved contributions, not a number typed in by hand. A contribution (`App\Models\PromotionPartnerExpense`) waits for `promotion.approve`. On approval the journal debits 5100 Promotion Expense. Partner-paid contributions credit that partner’s 3000 capital, so the partner statement and dashboard promotion figure come from those capital lines. Business-paid contributions credit the cash, bank, or wallet account and do not change partner capital.
+
+Expenses use the categories Rent, Salary, Electricity, Internet, Packaging, Delivery, Marketing, Facebook Ads, Software, Transport, Bank Charges, Office Expense, and Misc. Each category posts to its own chart account (Misc stays on 5600). They wait for `expense.approve` under the same amount bands as other approvals. A partner-paid expense credits that partner’s capital (`App\Models\Expense`). A business-paid expense credits cash or bank. The requester cannot approve their own contribution or expense. Customer delivery charged on a sale stays inside 4000. Account 5400 is the business’s own delivery expense.
+
+Seeded through the real services: a Facebook campaign with Rahim’s ৳2,000 personal contribution approved and a ৳1,500 business boost left pending, an offline banner paid ৳500 from cash, May rent ৳800 from cash, Fatema’s personal electricity payment of ৳400, and a packaging expense left pending.
+
 ## Later phases
 
-Do not hard-delete financial history or stock movements. Promotions should use `App\Models\PromotionPartnerExpense`, partner expenses `App\Models\Expense`, and profit share `App\Models\ProfitAllocation` (`App\Support\LedgerSource`). Customer delivery charged on a sale stays inside 4000. Account 5400 is for the business’s own delivery cost in Phase 6. The dashboard inventory card stays marked for a later phase.
+Do not hard-delete financial history or stock movements. Profit share should use `App\Models\ProfitAllocation` (`App\Support\LedgerSource`). Phase 7 statements must be built from the ledger: product sales minus COGS for gross profit, then the expense accounts (including 5100 and the category accounts added in Phase 6) for net profit. The balance sheet must keep assets equal to liabilities plus equity, including current-period earnings. Profit allocation posts a journal (debit retained earnings, credit each partner’s capital) from ownership, investment, or a custom percentage. The dashboard inventory card stays marked for a later phase.

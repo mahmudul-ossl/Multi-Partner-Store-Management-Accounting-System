@@ -10,6 +10,7 @@ use App\Http\Controllers\ChartOfAccountController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPaymentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinancialAccountController;
 use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\JournalEntryController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerFinanceController;
 use App\Http\Controllers\PartnerUserController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\RefundController;
@@ -154,6 +156,15 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/sales/payments', [CustomerPaymentController::class, 'store'])->name('sales.payments.store');
     Route::post('/sales/refunds', [RefundController::class, 'store'])->name('sales.refunds.store');
     Route::post('/sales/cancellations', [SalesCancellationController::class, 'store'])->name('sales.cancellations.store');
+
+    Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
+    Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
+    Route::get('/promotions/{promotion}', [PromotionController::class, 'show'])->name('promotions.show');
+    Route::post('/promotions/{promotion}/contributions', [PromotionController::class, 'storeContribution'])->name('promotions.contributions.store');
+
+    Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+    Route::get('/expenses/{expense}', [ExpenseController::class, 'show'])->name('expenses.show');
 
     Route::get('/sales/returns', [SaleReturnController::class, 'index'])->name('sales.returns.index');
     Route::post('/sales/returns', [SaleReturnController::class, 'store'])->name('sales.returns.store');

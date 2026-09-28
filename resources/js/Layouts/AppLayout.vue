@@ -31,6 +31,8 @@ const navigation = computed(() => [
     { label: 'Customers', href: '/sales/customers', show: can('customer.view') },
     { label: 'Sales', href: '/sales/orders', show: can('sale.view') },
     { label: 'Sales returns', href: '/sales/returns', show: can('sale.view') },
+    { label: 'Promotions', href: '/promotions', show: can('promotion.view') },
+    { label: 'Expenses', href: '/expenses', show: can('expense.view') },
     { label: 'Partners', href: '/partners', show: can('partner.view') },
     { label: 'Users', href: '/users', show: can('user.manage') },
     { label: 'Roles', href: '/roles', show: can('role.manage') },
@@ -113,6 +115,10 @@ const crumbs = computed(() => {
         items.push({ label: 'Sales', href: '/sales/orders' });
     } else if (path.startsWith('/sales/returns')) {
         items.push({ label: 'Sales returns', href: '/sales/returns' });
+    } else if (path.startsWith('/promotions')) {
+        items.push({ label: 'Promotions', href: '/promotions' });
+    } else if (path.startsWith('/expenses')) {
+        items.push({ label: 'Expenses', href: '/expenses' });
     } else if (path.startsWith('/settings')) {
         items.push({ label: 'Approval settings' });
     }
