@@ -188,6 +188,7 @@ class DatabaseSeeder extends Seeder
             InventoryExampleSeeder::class,
             SalesExampleSeeder::class,
             SpendingExampleSeeder::class,
+            AllocationExampleSeeder::class,
         ]);
     }
 

@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
+use App\Models\ProfitAllocation;
 use App\Models\PromotionPartnerExpense;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
@@ -100,7 +101,23 @@ final class ApprovalNotifier
             $document instanceof SalesCancellation => $document->loadMissing('sale.customer')->sale?->customer?->name ?? '—',
             $document instanceof PromotionPartnerExpense => $document->loadMissing('partner')->partner?->name ?? '—',
             $document instanceof Expense => $document->partner_id === null ? 'Business' : ($document->loadMissing('partner')->partner?->name ?? '—'),
+            $document instanceof ProfitAllocation => $this->allocationPartners($document),
             default => '—',
         };
+    }
+
+    private function allocationPartners(ProfitAllocation $document): string
+    {
+        $names = $document->loadMissing('lines.partner')->lines
+            ->map(fn ($line) => $line->partner?->name)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($names->count() === 0 || $names->count() > 3) {
+            return 'Partnership';
+        }
+
+        return $names->implode(', ');
     }
 }

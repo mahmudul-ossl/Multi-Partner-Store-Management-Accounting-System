@@ -44,12 +44,17 @@ const navigation = computed(() => [
     { label: 'General ledger', href: '/accounting/reports/general-ledger', show: can('accounting.view') },
     { label: 'Cash report', href: '/accounting/reports/cash', show: can('accounting.view') },
     { label: 'Bank report', href: '/accounting/reports/bank', show: can('accounting.view') },
+    { label: 'Profit & loss', href: '/accounting/reports/profit-loss', show: can('profit_loss.view') },
+    { label: 'Balance sheet', href: '/accounting/reports/balance-sheet', show: can('balance_sheet.view') },
+    { label: 'Trial balance', href: '/accounting/reports/trial-balance', show: can('report.view') },
+    { label: 'Profit allocations', href: '/accounting/allocations', show: can('accounting.view') },
+    { label: 'Period close', href: '/accounting/periods', show: can('accounting.view') },
     { label: 'Approval settings', href: '/settings/approvals', show: can('settings.manage') },
     { label: 'Audit log', href: '/audit-logs', show: can('audit_log.view') },
 ].filter((item) => item.show));
 
 const later = [
-    'Reports',
+    'Excel & PDF reports',
 ];
 
 const crumbs = computed(() => {
@@ -91,6 +96,16 @@ const crumbs = computed(() => {
         items.push({ label: 'Cash report' });
     } else if (path.startsWith('/accounting/reports/bank')) {
         items.push({ label: 'Bank report' });
+    } else if (path.startsWith('/accounting/reports/profit-loss')) {
+        items.push({ label: 'Profit & loss' });
+    } else if (path.startsWith('/accounting/reports/balance-sheet')) {
+        items.push({ label: 'Balance sheet' });
+    } else if (path.startsWith('/accounting/reports/trial-balance')) {
+        items.push({ label: 'Trial balance' });
+    } else if (path.startsWith('/accounting/allocations')) {
+        items.push({ label: 'Profit allocations', href: '/accounting/allocations' });
+    } else if (path.startsWith('/accounting/periods')) {
+        items.push({ label: 'Period close' });
     } else if (path.startsWith('/inventory/products')) {
         items.push({ label: 'Products', href: '/inventory/products' });
     } else if (path.startsWith('/inventory/catalog')) {

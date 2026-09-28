@@ -12,6 +12,8 @@ use App\Models\Partner;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
+use App\Models\ProfitAllocation;
+use App\Models\ProfitAllocationLine;
 use App\Models\PromotionPartnerExpense;
 use App\Support\ChartAccountCode;
 use App\Support\Format;
@@ -150,14 +152,16 @@ final class PartnerStatementService
             ->pluck('id');
         $contributionIds = PromotionPartnerExpense::query()->where('partner_id', $partner->id)->pluck('id');
         $expenseIds = Expense::query()->where('partner_id', $partner->id)->pluck('id');
+        $allocationIds = ProfitAllocationLine::query()->where('partner_id', $partner->id)->pluck('profit_allocation_id');
 
         $requests = ApprovalRequest::query()
-            ->where(function (Builder $query) use ($investmentIds, $withdrawalIds, $transferIds, $contributionIds, $expenseIds): void {
+            ->where(function (Builder $query) use ($investmentIds, $withdrawalIds, $transferIds, $contributionIds, $expenseIds, $allocationIds): void {
                 $query->where(fn (Builder $query) => $query->where('reference_type', PartnerInvestment::class)->whereIn('reference_id', $investmentIds))
                     ->orWhere(fn (Builder $query) => $query->where('reference_type', PartnerWithdrawal::class)->whereIn('reference_id', $withdrawalIds))
                     ->orWhere(fn (Builder $query) => $query->where('reference_type', PartnerTransfer::class)->whereIn('reference_id', $transferIds))
                     ->orWhere(fn (Builder $query) => $query->where('reference_type', PromotionPartnerExpense::class)->whereIn('reference_id', $contributionIds))
-                    ->orWhere(fn (Builder $query) => $query->where('reference_type', Expense::class)->whereIn('reference_id', $expenseIds));
+                    ->orWhere(fn (Builder $query) => $query->where('reference_type', Expense::class)->whereIn('reference_id', $expenseIds))
+                    ->orWhere(fn (Builder $query) => $query->where('reference_type', ProfitAllocation::class)->whereIn('reference_id', $allocationIds));
             })
             ->get(['status']);
 

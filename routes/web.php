@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountTransferController;
+use App\Http\Controllers\AllocationController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\ApprovalSettingController;
 use App\Http\Controllers\AuditLogController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\CustomerPaymentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinancialAccountController;
+use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LedgerReportController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\ManualJournalController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerFinanceController;
 use App\Http\Controllers\PartnerUserController;
+use App\Http\Controllers\PeriodController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PurchaseController;
@@ -113,6 +116,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/accounting/reports/general-ledger', [LedgerReportController::class, 'generalLedger'])->name('accounting.reports.ledger');
     Route::get('/accounting/reports/cash', [LedgerReportController::class, 'cash'])->name('accounting.reports.cash');
     Route::get('/accounting/reports/bank', [LedgerReportController::class, 'bank'])->name('accounting.reports.bank');
+    Route::get('/accounting/reports/profit-loss', [FinancialStatementController::class, 'profitLoss'])->name('accounting.reports.profit-loss');
+    Route::get('/accounting/reports/balance-sheet', [FinancialStatementController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
+    Route::get('/accounting/reports/trial-balance', [FinancialStatementController::class, 'trialBalance'])->name('accounting.reports.trial-balance');
+
+    Route::get('/accounting/allocations', [AllocationController::class, 'index'])->name('accounting.allocations.index');
+    Route::post('/accounting/allocations', [AllocationController::class, 'store'])->name('accounting.allocations.store');
+    Route::get('/accounting/allocations/{profit_allocation}', [AllocationController::class, 'show'])->name('accounting.allocations.show');
+
+    Route::get('/accounting/periods', [PeriodController::class, 'index'])->name('accounting.periods.index');
+    Route::post('/accounting/periods', [PeriodController::class, 'store'])->name('accounting.periods.store');
 
     Route::get('/inventory/catalog', [CatalogController::class, 'index'])->name('inventory.catalog.index');
     Route::post('/inventory/categories', [CatalogController::class, 'storeCategory'])->name('inventory.categories.store');

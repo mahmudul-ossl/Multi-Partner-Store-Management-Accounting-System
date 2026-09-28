@@ -47,7 +47,8 @@ return [
     | on-hand is derived from stock_movements (weighted average). Sales COGS
     | uses the unit cost written on the outbound movement. Financial
     | documents and stock history are reversed or voided; they are never
-    | hard-deleted.
+    | hard-deleted. Profit allocation debits retained earnings and a
+    | closed period blocks every journal dated on or before that date.
     |
     */
 
