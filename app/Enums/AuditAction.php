@@ -15,6 +15,8 @@ enum AuditAction: string
     case Rejected = 'rejected';
     case Cancelled = 'cancelled';
     case Reversed = 'reversed';
+    case Payment = 'payment';
+    case StockAdjusted = 'stock_adjusted';
 
     public function label(): string
     {
@@ -28,6 +30,8 @@ enum AuditAction: string
             self::Rejected => 'Rejected',
             self::Cancelled => 'Cancelled',
             self::Reversed => 'Reversed',
+            self::Payment => 'Payment',
+            self::StockAdjusted => 'Stock adjustment',
         };
     }
 
@@ -39,6 +43,7 @@ enum AuditAction: string
             self::Created => 'blue',
             self::Updated => 'amber',
             self::Deleted, self::Rejected => 'red',
+            self::Payment, self::StockAdjusted => 'blue',
         };
     }
 

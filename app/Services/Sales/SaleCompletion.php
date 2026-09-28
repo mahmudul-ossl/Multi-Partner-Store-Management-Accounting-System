@@ -11,6 +11,7 @@ use App\Models\Sale;
 use App\Models\User;
 use App\Services\Inventory\InventoryService;
 use App\Services\Ledger\JournalEntryService;
+use App\Services\OperationalNotifier;
 use App\Support\ChartAccountCode;
 use App\Support\Costing;
 use App\Support\Money;
@@ -28,6 +29,7 @@ final class SaleCompletion
     public function __construct(
         private readonly InventoryService $inventory,
         private readonly JournalEntryService $journal,
+        private readonly OperationalNotifier $alerts,
     ) {}
 
     public function complete(Sale $sale, User $actor): Sale
@@ -129,6 +131,10 @@ final class SaleCompletion
             $sale->journal_entry_id = $entry->id;
             $sale->status = DocumentStatus::Completed;
             $sale->save();
+
+            if (Money::of((string) $sale->due_amount)->compare('0.00') === 1) {
+                $this->alerts->customerDue($sale);
+            }
 
             return $sale->fresh('items');
         });

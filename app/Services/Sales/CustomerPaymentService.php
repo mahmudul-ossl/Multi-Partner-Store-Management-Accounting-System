@@ -87,7 +87,7 @@ final class CustomerPaymentService
             ]);
             $payment->journal_entry_id = $entry->id;
             $payment->save();
-            $this->audit->record(AuditAction::Created, $payment, null, [
+            $this->audit->record(AuditAction::Payment, $payment, null, [
                 'reference' => $payment->reference,
                 'amount' => $amount,
             ], $actor);

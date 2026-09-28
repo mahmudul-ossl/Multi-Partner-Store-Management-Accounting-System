@@ -14,7 +14,7 @@ defineProps({
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-                <p class="mt-1 text-sm text-slate-500">Partner counts, cash held in financial accounts, sales from the ledger, and approvals waiting on you.</p>
+                <p class="mt-1 text-sm text-slate-500">Cards and charts follow your permissions. Money figures come from the ledger. Inventory value is on-hand quantity times weighted average cost.</p>
             </div>
         </div>
 
@@ -25,21 +25,22 @@ defineProps({
             <SummaryCard label="Suspended partners" :value="summary.partners_suspended" />
             <SummaryCard v-if="summary.show_user_counts" label="Users" :value="summary.users_total" />
             <SummaryCard v-if="summary.show_user_counts" label="Active users" :value="summary.users_active" />
-            <SummaryCard v-if="summary.show_pending_approvals" label="Approvals waiting on you" :value="summary.pending_approvals" hint="Open the approval queue" />
-            <SummaryCard v-if="summary.show_cash" label="Cash & bank" :value="summary.cash_and_bank" hint="Cached balance from the ledger" />
-            <SummaryCard v-if="summary.show_sales" label="Sales" :value="summary.sales" hint="Product sales from the ledger, net of returns" />
+            <SummaryCard v-for="card in summary.cards" :key="card.key" :label="card.label" :value="card.value" />
         </section>
 
-        <h2 class="mt-10 text-sm font-semibold uppercase tracking-wide text-slate-500">Coming in a later phase</h2>
-        <section class="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <SummaryCard
-                v-for="item in summary.placeholders"
-                :key="item.key"
-                :label="item.label"
-                value="—"
-                :hint="item.note"
-                muted
-            />
+        <section v-if="summary.charts.length" class="mt-10 grid gap-4 lg:grid-cols-2">
+            <article v-for="chart in summary.charts" :key="chart.key" class="card p-5">
+                <h2 class="font-semibold">{{ chart.label }}</h2>
+                <div class="mt-4 space-y-2">
+                    <div v-for="point in chart.points" :key="point.label" class="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3 text-sm">
+                        <span class="text-slate-500">{{ point.label }}</span>
+                        <span class="h-2 overflow-hidden rounded-full bg-slate-100">
+                            <span class="block h-2 rounded-full bg-teal-600" :style="{ width: point.width }" />
+                        </span>
+                        <span class="font-medium text-slate-800">{{ point.formatted }}</span>
+                    </div>
+                </div>
+            </article>
         </section>
 
         <section class="card mt-10 overflow-hidden">

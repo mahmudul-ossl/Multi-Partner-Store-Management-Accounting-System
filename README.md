@@ -373,7 +373,7 @@ Eight partners are seeded. Ownership and investment percentages are different fo
 
 After migrate, seed, and `npm run build`:
 
-1. Sign in as the super admin and land on a dashboard with partner and user counts, approvals waiting on you, cash and bank, plus inventory and sales cards still marked “Coming in a later phase”.
+1. Sign in as the super admin and land on a dashboard with partner and user counts, ledger cards (sales, investment, inventory value, expenses, profit, cash, bank, receivables, payables, pending approvals, low stock), and monthly charts. Inventory value is on-hand quantity times weighted average cost. The notification bell lists unread approval, low-stock, and payment-due alerts.
 2. Partners can be searched, filtered, sorted, and paged. Creating one writes an audit row. Archiving soft-deletes it.
 3. A partner can be linked to one unused user account, and that user cannot be linked twice.
 4. Users can be created with a role. A weak password is rejected. The account-created notification is queued.
@@ -419,7 +419,7 @@ A sale total is subtotal − discount + delivery. Completing it is the only time
 - Discounts above the large-discount threshold (default ৳1,000, editable on Approval settings) stay pending. Stock and the journal wait for `sale.cancel` approval. The requester cannot approve it.
 - A sales return posts immediately. Stock comes back at the original sale cost, revenue and COGS reverse in proportion to the line (including its share of discount and delivery), and the sale due falls. A negative due is customer credit.
 - A refund pays that credit only after approval. It debits receivable and credits cash. Cancellation of a completed sale with no returns, payments, or refunds also needs approval; on approval the original journal is reversed and the quantity is put back.
-- Customer dues are the sum of `due_amount` on completed sales. The dashboard sales card is product-sales revenue from the ledger. Inventory value on the dashboard stays a later-phase placeholder.
+- Customer dues are the sum of `due_amount` on completed sales. The dashboard sales card is product-sales revenue from the ledger.
 
 Seeded through the real services: four customers, a completed cash sale, a completed sale with discount, delivery, a partial payment and a later receipt, and one messenger-bag order held for a ৳1,500 discount.
 
@@ -443,12 +443,19 @@ A profit allocation (`App\Models\ProfitAllocation`) waits for `accounting.manage
 
 A period close stores the latest `closed_through` date. Every journal on or before that date is rejected, including a later approval of a document dated inside the closed period. The close date cannot move backward.
 
-Seeded through the real services: ৳770 allocated by ownership on 30 Jun 2026 (Rahim ৳180, and the six active shares add up to ৳770), then the books closed through 31 May 2026. The allocation date stays open. The dashboard inventory card stays marked for a later phase.
+Seeded through the real services: ৳770 allocated by ownership on 30 Jun 2026 (Rahim ৳180, and the six active shares add up to ৳770), then the books closed through 31 May 2026. The allocation date stays open.
 
-## Later phases
+## Phase 8
 
-Phase 8 should reuse `FinancialStatementService` for profit and loss, the balance sheet, and the trial balance instead of adding up the ledger again. The report catalogue (date filter, search, sort, pagination, Excel, and PDF) covers Sales, Purchase, Product Sales, Stock, Stock Movement, Investment, Withdrawal, Partner Statement, Partner Balance, Promotion, Expense, Cash, Bank, Accounts Receivable, Accounts Payable, Profit and Loss, Balance Sheet, Trial Balance, General Ledger, and the Monthly Business Report.
+Reports, the dashboard, operational notifications, the extended audit log, and the Sanctum API read the same services as the web screens.
 
-Dashboard cards still to fill: inventory value (the placeholder stays until then), expenses, gross profit, net profit, cash, bank, receivables, payables, pending approvals, and low stock. Charts: monthly sales, profit, investment, withdrawal, expenses, promotion, and stock value. Notifications for low stock, payment due, and supplier payment due. The spec also places Sanctum `/api/v1` in Phase 8. Phase 9 is tests, security, and deployment.
+- The report catalogue at `/reports` covers Sales, Purchases, Product sales, Stock, Stock movements, Investments, Withdrawals, Partner statement, Partner balances, Promotions, Expenses, Cash, Bank, Accounts receivable, Accounts payable, Profit and loss, Balance sheet, Trial balance, General ledger, and the Monthly business report. Each report keeps the permission that already guards that area. Date filter, search, sort, and pagination run before Excel and PDF export. Profit and loss, the balance sheet, and the trial balance still come from `FinancialStatementService`. Inventory value and stock reports come from `stock_movements` and the weighted-average cost.
+- The monthly business report lists sales, purchases, COGS, gross profit, expenses by category, net profit, opening and closing cash, opening and closing stock, investment, withdrawal, promotion, receivables, and payables for the range.
+- Dashboard cards and charts are omitted when the user lacks the permission. A partner sees their own investment, not the company-wide investment and withdrawal charts. Inventory value is filled from the stock ledger.
+- Low stock, customer payment due, and supplier payment due write a database notification (one per user and subject). Approval notifications stay on mail and the database. The header bell lists the unread ones.
+- Audit actions now include payment and stock adjustment, recorded when a supplier or customer payment posts and when a stock adjustment posts. Approve, reject, cancel, and reverse were already recorded.
+- `/api/v1` uses Sanctum personal access tokens. Partners, investments, withdrawals, the partner statement, approvals (list, approve, reject), products, purchases, sales, and `reports/monthly` call the same form requests, services, and policies as the web. A requester still cannot approve their own transaction.
 
-Do not hard-delete financial history or stock movements.
+## Phase 9
+
+Phase 9 is a review pass, not a new ledger. Check rate limiting (the API throttle is already on), authorization on every route, mass assignment, and that the audit log still covers approve, reject, cancel, reverse, payment, and stock adjustment. Look at indexes, eager loading, caching of dashboard summaries, and queues. Harden the production Docker setup and write the deployment notes. The critical ৳50,000 withdrawal self-approval test and the earlier phase tests already cover the spec’s minimum list; extend that suite where a path is still untested. Do not hard-delete financial history or stock movements.

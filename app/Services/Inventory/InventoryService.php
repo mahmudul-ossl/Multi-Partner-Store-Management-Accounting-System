@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\OperationalNotifier;
 use App\Support\Costing;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class InventoryService
 {
+    public function __construct(private readonly OperationalNotifier $alerts) {}
+
     public function apply(
         Product $product,
         Warehouse $warehouse,
@@ -71,6 +74,10 @@ final class InventoryService
 
             $product->average_cost = $average;
             $product->save();
+
+            if (Costing::compareQty($next, (string) $product->reorder_level) !== 1) {
+                $this->alerts->lowStock($product, $next);
+            }
 
             return $movement;
         });
