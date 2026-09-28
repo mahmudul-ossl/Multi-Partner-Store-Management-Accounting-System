@@ -11,6 +11,10 @@ enum AuditAction: string
     case Created = 'created';
     case Updated = 'updated';
     case Deleted = 'deleted';
+    case Approved = 'approved';
+    case Rejected = 'rejected';
+    case Cancelled = 'cancelled';
+    case Reversed = 'reversed';
 
     public function label(): string
     {
@@ -20,17 +24,21 @@ enum AuditAction: string
             self::Created => 'Created',
             self::Updated => 'Updated',
             self::Deleted => 'Deleted',
+            self::Approved => 'Approved',
+            self::Rejected => 'Rejected',
+            self::Cancelled => 'Cancelled',
+            self::Reversed => 'Reversed',
         };
     }
 
     public function tone(): string
     {
         return match ($this) {
-            self::Login => 'green',
-            self::Logout => 'slate',
+            self::Login, self::Approved => 'green',
+            self::Logout, self::Cancelled, self::Reversed => 'slate',
             self::Created => 'blue',
             self::Updated => 'amber',
-            self::Deleted => 'red',
+            self::Deleted, self::Rejected => 'red',
         };
     }
 

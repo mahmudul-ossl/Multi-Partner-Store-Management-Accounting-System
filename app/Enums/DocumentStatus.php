@@ -19,4 +19,38 @@ enum DocumentStatus: string
     case Completed = 'completed';
     case Cancelled = 'cancelled';
     case Reversed = 'reversed';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Draft => 'Draft',
+            self::Pending => 'Pending',
+            self::Approved => 'Approved',
+            self::Rejected => 'Rejected',
+            self::Completed => 'Completed',
+            self::Cancelled => 'Cancelled',
+            self::Reversed => 'Reversed',
+        };
+    }
+
+    public function tone(): string
+    {
+        return match ($this) {
+            self::Approved, self::Completed => 'green',
+            self::Pending, self::Draft => 'blue',
+            self::Rejected => 'red',
+            self::Cancelled, self::Reversed => 'slate',
+        };
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function options(): array
+    {
+        return array_map(
+            fn (self $status): array => ['value' => $status->value, 'label' => $status->label()],
+            self::cases(),
+        );
+    }
 }

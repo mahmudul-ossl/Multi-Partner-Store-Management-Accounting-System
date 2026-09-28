@@ -58,6 +58,26 @@ final class Money
         return bccomp($this->amount, '0.00', 2) === 0;
     }
 
+    public function add(self|string|int $other): self
+    {
+        return new self(bcadd($this->amount, $this->normalize($other), 2));
+    }
+
+    public function sub(self|string|int $other): self
+    {
+        return new self(bcsub($this->amount, $this->normalize($other), 2));
+    }
+
+    public function compare(self|string|int $other): int
+    {
+        return bccomp($this->amount, $this->normalize($other), 2);
+    }
+
+    private function normalize(self|string|int $amount): string
+    {
+        return $amount instanceof self ? $amount->amount : self::of($amount)->amount();
+    }
+
     private static function groupThousands(string $digits): string
     {
         $digits = ltrim($digits, '0');

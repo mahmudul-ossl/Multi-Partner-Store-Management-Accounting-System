@@ -25,8 +25,10 @@ class DashboardAndAuditTest extends FeatureTestCase
                 ->where('summary.partners_total', 4)
                 ->where('summary.partners_inactive', 1)
                 ->where('summary.users_total', 1)
+                ->where('summary.pending_approvals', 0)
+                ->where('summary.placeholders.0.key', 'inventory_value')
                 ->where('summary.placeholders.0.note', 'Coming in a later phase')
-                ->where('summary.placeholders.5.key', 'cash_balance'));
+                ->where('summary.placeholders.1.key', 'sales'));
     }
 
     public function test_a_partner_dashboard_counts_only_their_own_record(): void

@@ -9,6 +9,7 @@ use Database\Factories\PartnerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Partner extends Model
@@ -49,6 +50,26 @@ class Partner extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function investments(): HasMany
+    {
+        return $this->hasMany(PartnerInvestment::class);
+    }
+
+    public function withdrawals(): HasMany
+    {
+        return $this->hasMany(PartnerWithdrawal::class);
+    }
+
+    public function transfersOut(): HasMany
+    {
+        return $this->hasMany(PartnerTransfer::class, 'from_partner_id');
+    }
+
+    public function transfersIn(): HasMany
+    {
+        return $this->hasMany(PartnerTransfer::class, 'to_partner_id');
     }
 
     /**

@@ -178,6 +178,13 @@ class DatabaseSeeder extends Seeder
         }
 
         unset($superAdmin);
+
+        $this->call([
+            ChartOfAccountSeeder::class,
+            FinancialAccountSeeder::class,
+            ApprovalThresholdSeeder::class,
+            PartnerFinanceExampleSeeder::class,
+        ]);
     }
 
     private function upsertUser(string $name, string $email, string $password, string $phone, RoleName $role): User
