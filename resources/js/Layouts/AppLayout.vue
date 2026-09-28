@@ -28,6 +28,9 @@ const navigation = computed(() => [
     { label: 'Stock movements', href: '/inventory/stock/movements', show: can('stock.view') },
     { label: 'Low stock', href: '/inventory/stock/low', show: can('stock.view') },
     { label: 'Stock adjustments', href: '/inventory/adjustments', show: can('stock.view') },
+    { label: 'Customers', href: '/sales/customers', show: can('customer.view') },
+    { label: 'Sales', href: '/sales/orders', show: can('sale.view') },
+    { label: 'Sales returns', href: '/sales/returns', show: can('sale.view') },
     { label: 'Partners', href: '/partners', show: can('partner.view') },
     { label: 'Users', href: '/users', show: can('user.manage') },
     { label: 'Roles', href: '/roles', show: can('role.manage') },
@@ -44,7 +47,6 @@ const navigation = computed(() => [
 ].filter((item) => item.show));
 
 const later = [
-    'Sales',
     'Reports',
 ];
 
@@ -105,6 +107,12 @@ const crumbs = computed(() => {
         items.push({ label: 'Stock' });
     } else if (path.startsWith('/inventory/adjustments')) {
         items.push({ label: 'Stock adjustments' });
+    } else if (path.startsWith('/sales/customers')) {
+        items.push({ label: 'Customers', href: '/sales/customers' });
+    } else if (path.startsWith('/sales/orders')) {
+        items.push({ label: 'Sales', href: '/sales/orders' });
+    } else if (path.startsWith('/sales/returns')) {
+        items.push({ label: 'Sales returns', href: '/sales/returns' });
     } else if (path.startsWith('/settings')) {
         items.push({ label: 'Approval settings' });
     }

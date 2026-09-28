@@ -17,6 +17,7 @@ class JournalEntryLine extends Model
         'chart_of_account_id',
         'partner_id',
         'supplier_id',
+        'customer_id',
         'financial_account_id',
         'debit',
         'credit',
@@ -57,6 +58,11 @@ class JournalEntryLine extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function financialAccount(): BelongsTo

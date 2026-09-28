@@ -328,7 +328,7 @@ npm run dev
 php artisan queue:work
 ```
 
-Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, the accounting screens, the inventory screens (products, catalog, suppliers, purchases, returns, stock, movements, low stock, and adjustments), Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Sales and the remaining financial reports are labelled as coming later.
+Sign in at `/login`. The sidebar lists Dashboard, Approvals, partner finance, the accounting screens, the inventory screens, customers, sales, and sales returns, plus Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. The remaining financial reports are labelled as coming later.
 
 ## Testing
 
@@ -412,6 +412,17 @@ Costing is weighted average. `InventoryService` is the only writer of `stock_mov
 
 Seeded through the real services: 5 suppliers, 5 categories, 3 brands, 20 leather goods with opening stock, one approved partial purchase of bifold wallets (then a return and the remaining payment), one pending tote purchase, and the Leather Key Fob left at or below its reorder level. Cash stays non-negative after those payments.
 
+## Phase 5
+
+A sale total is subtotal − discount + delivery. Completing it is the only time stock leaves and the journal posts: debit cash and/or 1200 Accounts Receivable, credit 4000 Product Sales, and debit 5000 COGS, credit 1100 Inventory. COGS uses the `unit_cost` on the sale movement, which is the weighted average at that moment. A later sale of the same product uses the average after this one.
+
+- Discounts above the large-discount threshold (default ৳1,000, editable on Approval settings) stay pending. Stock and the journal wait for `sale.cancel` approval. The requester cannot approve it.
+- A sales return posts immediately. Stock comes back at the original sale cost, revenue and COGS reverse in proportion to the line (including its share of discount and delivery), and the sale due falls. A negative due is customer credit.
+- A refund pays that credit only after approval. It debits receivable and credits cash. Cancellation of a completed sale with no returns, payments, or refunds also needs approval; on approval the original journal is reversed and the quantity is put back.
+- Customer dues are the sum of `due_amount` on completed sales. The dashboard sales card is product-sales revenue from the ledger. Inventory value on the dashboard stays a later-phase placeholder.
+
+Seeded through the real services: four customers, a completed cash sale, a completed sale with discount, delivery, a partial payment and a later receipt, and one messenger-bag order held for a ৳1,500 discount.
+
 ## Later phases
 
-Do not hard-delete financial history or stock movements. Sales, promotions, expenses, financial statements, and the remaining reports follow. The dashboard inventory and sales cards stay marked for a later phase.
+Do not hard-delete financial history or stock movements. Promotions should use `App\Models\PromotionPartnerExpense`, partner expenses `App\Models\Expense`, and profit share `App\Models\ProfitAllocation` (`App\Support\LedgerSource`). Customer delivery charged on a sale stays inside 4000. Account 5400 is for the business’s own delivery cost in Phase 6. The dashboard inventory card stays marked for a later phase.
