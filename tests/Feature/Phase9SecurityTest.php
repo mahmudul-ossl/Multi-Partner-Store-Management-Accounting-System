@@ -60,7 +60,7 @@ class Phase9SecurityTest extends FinanceTestCase
     public function test_every_non_public_route_requires_auth_and_an_authorization_check(): void
     {
         $public = ['login', 'login.store', 'home', 'api.login', 'api.index'];
-        $selfService = ['logout', 'dashboard', 'notifications.read', 'notifications.read-all', 'api.logout'];
+        $selfService = ['logout', 'dashboard', 'notifications.index', 'notifications.read', 'notifications.read-all', 'api.logout'];
         $checked = 0;
 
         foreach (Route::getRoutes() as $route) {

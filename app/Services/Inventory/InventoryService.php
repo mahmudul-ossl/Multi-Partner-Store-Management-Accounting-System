@@ -77,7 +77,7 @@ final class InventoryService
             $product->save();
 
             if (Costing::compareQty($next, (string) $product->reorder_level) !== 1) {
-                $this->alerts->lowStock($product, $next);
+                $this->alerts->lowStock($product);
             }
 
             DashboardCache::bump();

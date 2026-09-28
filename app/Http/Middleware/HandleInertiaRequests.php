@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\NotificationFeed;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -58,16 +59,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
-            'notifications' => $user ? [
-                'unread' => $user->unreadNotifications()->count(),
-                'items' => $user->unreadNotifications()->latest()->limit(8)->get()->map(fn ($notification): array => [
-                    'id' => $notification->id,
-                    'title' => (string) ($notification->data['title'] ?? 'Notification'),
-                    'message' => (string) ($notification->data['message'] ?? ''),
-                    'url' => $notification->data['url'] ?? null,
-                    'created_at' => $notification->created_at?->timezone((string) config('app.timezone'))->format('d-M-Y H:i'),
-                ])->all(),
-            ] : ['unread' => 0, 'items' => []],
+            'notifications' => $user ? NotificationFeed::bell($user) : ['unread' => 0, 'operational' => [], 'approvals' => []],
         ];
     }
 }

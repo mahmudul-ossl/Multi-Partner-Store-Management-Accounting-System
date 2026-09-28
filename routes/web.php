@@ -65,6 +65,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports/{report}/pdf', [ReportController::class, 'pdf'])->name('reports.pdf');
     Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
 
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
 

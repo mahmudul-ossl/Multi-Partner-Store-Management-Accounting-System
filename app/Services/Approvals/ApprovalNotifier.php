@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Notifications\ApprovalActivity;
 use App\Support\Format;
 use App\Support\Money;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -42,7 +43,17 @@ final class ApprovalNotifier
             'New '.$request->request_type->label().' approval required',
             $this->sentence($request, 'approval required'),
             $request,
+            'approval_required',
         );
+    }
+
+    public function settle(ApprovalRequest $request): void
+    {
+        DatabaseNotification::query()
+            ->where('data->kind', 'approval_required')
+            ->where('data->approval_request_id', $request->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
     }
 
     public function decided(ApprovalRequest $request, string $decision): void
@@ -58,15 +69,16 @@ final class ApprovalNotifier
             $request->request_type->label().' '.$decision,
             $this->sentence($request, $decision),
             $request,
+            'approval_decided',
         );
     }
 
     /**
      * @param  iterable<User>  $recipients
      */
-    private function send(iterable $recipients, string $title, string $message, ApprovalRequest $request): void
+    private function send(iterable $recipients, string $title, string $message, ApprovalRequest $request, string $kind): void
     {
-        $notification = new ApprovalActivity($title, $message, route('approvals.show', $request));
+        $notification = new ApprovalActivity($title, $message, route('approvals.show', $request), (int) $request->id, $kind);
 
         DB::afterCommit(function () use ($recipients, $notification): void {
             Notification::send($recipients, $notification);

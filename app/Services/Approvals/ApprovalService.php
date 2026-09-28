@@ -133,6 +133,7 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'approved');
+            $this->notifier->settle($request);
             DashboardCache::bump();
 
             return $request->fresh(['actions.user', 'reference']);
@@ -169,6 +170,7 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'rejected');
+            $this->notifier->settle($request);
             DashboardCache::bump();
 
             return $request;
@@ -196,6 +198,7 @@ final class ApprovalService
             $this->audit->record(AuditAction::Cancelled, $document, null, [
                 'status' => DocumentStatus::Cancelled->value,
             ], $actor);
+            $this->notifier->settle($request);
             DashboardCache::bump();
 
             return $request;
