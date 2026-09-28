@@ -13,6 +13,7 @@ use App\Models\SalesCancellation;
 use App\Models\User;
 use App\Services\Inventory\InventoryService;
 use App\Services\Ledger\JournalEntryService;
+use App\Services\OperationalNotifier;
 use App\Support\ChartAccountCode;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ final class SalesPoster
         private readonly InventoryService $inventory,
         private readonly JournalEntryService $journal,
         private readonly SaleRules $rules,
+        private readonly OperationalNotifier $alerts,
     ) {}
 
     public function post(Model $document, User $actor): void
@@ -61,6 +63,7 @@ final class SalesPoster
             $sale->due_amount = Money::of((string) $sale->due_amount)->add((string) $document->amount)->amount();
             $sale->paid_amount = Money::of((string) $sale->paid_amount)->sub((string) $document->amount)->amount();
             $sale->save();
+            $this->alerts->customerDue($sale);
 
             $description = 'Refund '.$document->reference;
             $account = $document->financialAccount;
@@ -114,6 +117,7 @@ final class SalesPoster
             $sale->paid_amount = '0.00';
             $sale->due_amount = '0.00';
             $sale->save();
+            $this->alerts->customerDue($sale);
         });
     }
 }

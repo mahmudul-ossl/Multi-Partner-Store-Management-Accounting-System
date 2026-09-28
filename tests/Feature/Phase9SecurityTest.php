@@ -59,7 +59,7 @@ class Phase9SecurityTest extends FinanceTestCase
 
     public function test_every_non_public_route_requires_auth_and_an_authorization_check(): void
     {
-        $public = ['login', 'login.store', 'home', 'api.login'];
+        $public = ['login', 'login.store', 'home', 'api.login', 'api.index'];
         $selfService = ['logout', 'dashboard', 'notifications.read', 'notifications.read-all', 'api.logout'];
         $checked = 0;
 
@@ -101,6 +101,15 @@ class Phase9SecurityTest extends FinanceTestCase
         $this->assertContains('throttle:login', Route::getRoutes()->getByName('api.login')->gatherMiddleware());
         $this->assertContains('auth:sanctum', Route::getRoutes()->getByName('api.partners.index')->gatherMiddleware());
         $this->assertContains('throttle:api', app('router')->getMiddlewareGroups()['api']);
+    }
+
+    public function test_api_root_lists_the_version_and_endpoints(): void
+    {
+        $this->getJson('/api/v1')
+            ->assertOk()
+            ->assertJsonPath('version', 'v1')
+            ->assertJsonFragment(['method' => 'POST', 'path' => '/api/v1/login', 'name' => 'api.login'])
+            ->assertJsonFragment(['method' => 'GET', 'path' => '/api/v1/partners', 'name' => 'api.partners.index']);
     }
 
     public function test_models_use_fillable_and_do_not_open_mass_assignment(): void

@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BusinessController;
+use App\Http\Controllers\Api\V1\IndexController;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
+    Route::get('/', IndexController::class)->name('api.index');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('api.login');
 
     Route::middleware(['auth:sanctum', EnsureUserIsActive::class])->group(function (): void {

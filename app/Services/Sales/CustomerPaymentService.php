@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Finance\PartnerFinanceGuard;
 use App\Services\Ledger\JournalEntryService;
+use App\Services\OperationalNotifier;
 use App\Support\ChartAccountCode;
 use App\Support\Money;
 use App\Support\Sequence;
@@ -26,6 +27,7 @@ final class CustomerPaymentService
         private readonly JournalEntryService $journal,
         private readonly AuditLogService $audit,
         private readonly PartnerFinanceGuard $guard,
+        private readonly OperationalNotifier $alerts,
     ) {}
 
     /**
@@ -66,6 +68,7 @@ final class CustomerPaymentService
             $sale->due_amount = Money::of((string) $sale->due_amount)->sub($amount)->amount();
             $sale->paid_amount = Money::of((string) $sale->paid_amount)->add($amount)->amount();
             $sale->save();
+            $this->alerts->customerDue($sale);
 
             $description = 'Customer payment '.$payment->reference;
             $entry = $this->journal->post($payment, $actor, $payment->payment_date->toDateString(), $description, [

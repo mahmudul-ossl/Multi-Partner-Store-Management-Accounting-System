@@ -33,6 +33,10 @@ The app container runs `php artisan migrate --force` on start. Seed is a separat
 
 Open `http://localhost:8080` (or `APP_URL`).
 
+## API
+
+`GET /api/v1` is public and returns the API version plus the route list (`POST /api/v1/login`, partners, investments, withdrawals, approvals, products, purchases, sales, and `GET /api/v1/reports/monthly`). Other `/api/v1` routes require a Sanctum bearer token from `POST /api/v1/login`. Approve and reject are limited to 30 requests per minute. The API group is limited to 60 requests per minute. Login is limited to 5 attempts per minute.
+
 ## Migrations
 
 ```bash

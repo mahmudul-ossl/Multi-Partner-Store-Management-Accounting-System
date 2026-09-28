@@ -11,6 +11,7 @@ use App\Models\Sale;
 use App\Models\User;
 use App\Notifications\OperationalAlert;
 use App\Support\Money;
+use Illuminate\Notifications\DatabaseNotification;
 
 /**
  * Writes one unread database notification per user and subject.
@@ -25,27 +26,66 @@ final class OperationalNotifier
     public function customerDue(Sale $sale): void
     {
         $sale->loadMissing('customer');
-        $this->notify(
+        $this->syncDue(
             PermissionName::SaleView,
             'customer_due',
             (int) $sale->id,
             'Customer payment due',
             ($sale->customer?->name ?? 'A customer').' still owes '.Money::of((string) $sale->due_amount)->formatted().' on '.$sale->reference.'.',
             '/sales/orders/'.$sale->id,
+            (string) $sale->due_amount,
         );
     }
 
     public function supplierDue(Purchase $purchase): void
     {
         $purchase->loadMissing('supplier');
-        $this->notify(
+        $this->syncDue(
             PermissionName::PurchaseView,
             'supplier_due',
             (int) $purchase->id,
             'Supplier payment due',
             ($purchase->supplier?->name ?? 'A supplier').' is owed '.Money::of((string) $purchase->due_amount)->formatted().' on '.$purchase->reference.'.',
             '/inventory/purchases/'.$purchase->id,
+            (string) $purchase->due_amount,
         );
+    }
+
+    private function syncDue(PermissionName $permission, string $kind, int $subjectId, string $title, string $message, string $url, string $due): void
+    {
+        $existing = DatabaseNotification::query()
+            ->where('data->kind', $kind)
+            ->where('data->subject_id', $subjectId)
+            ->get();
+
+        if (Money::of($due)->compare('0.00') !== 1) {
+            foreach ($existing as $notification) {
+                if ($notification->read_at === null) {
+                    $notification->markAsRead();
+                }
+            }
+
+            return;
+        }
+
+        if ($existing->isEmpty()) {
+            $this->notify($permission, $kind, $subjectId, $title, $message, $url);
+
+            return;
+        }
+
+        foreach ($existing as $notification) {
+            $data = $notification->data;
+            if (($data['message'] ?? '') === $message) {
+                continue;
+            }
+
+            $data['message'] = $message;
+            $data['title'] = $title;
+            $notification->data = $data;
+            $notification->read_at = null;
+            $notification->save();
+        }
     }
 
     private function notify(PermissionName $permission, string $kind, int $subjectId, string $title, string $message, string $url): void
