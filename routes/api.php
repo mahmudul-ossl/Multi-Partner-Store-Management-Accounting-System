@@ -6,7 +6,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
-    Route::post('/login', [AuthController::class, 'login'])->name('api.login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('api.login');
 
     Route::middleware(['auth:sanctum', EnsureUserIsActive::class])->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
@@ -24,8 +24,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/withdrawals', [BusinessController::class, 'storeWithdrawal'])->name('api.withdrawals.store');
 
         Route::get('/approvals', [BusinessController::class, 'approvals'])->name('api.approvals.index');
-        Route::post('/approvals/{approval}/approve', [BusinessController::class, 'approve'])->name('api.approvals.approve');
-        Route::post('/approvals/{approval}/reject', [BusinessController::class, 'reject'])->name('api.approvals.reject');
+        Route::post('/approvals/{approval}/approve', [BusinessController::class, 'approve'])->middleware('throttle:approvals')->name('api.approvals.approve');
+        Route::post('/approvals/{approval}/reject', [BusinessController::class, 'reject'])->middleware('throttle:approvals')->name('api.approvals.reject');
 
         Route::get('/products', [BusinessController::class, 'products'])->name('api.products.index');
         Route::post('/products', [BusinessController::class, 'storeProduct'])->name('api.products.store');

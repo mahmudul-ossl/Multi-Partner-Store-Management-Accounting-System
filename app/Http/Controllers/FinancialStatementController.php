@@ -52,7 +52,7 @@ class FinancialStatementController extends Controller
 
     public function trialBalance(Request $request, FinancialStatementService $statements): Response
     {
-        abort_unless($request->user()?->can(PermissionName::ReportView->value), 403);
+        abort_unless($request->user()?->can(PermissionName::TrialBalanceView->value), 403);
 
         return Inertia::render('Accounting/TrialBalance', [
             'filters' => ['as_of' => $this->asOf($request)],

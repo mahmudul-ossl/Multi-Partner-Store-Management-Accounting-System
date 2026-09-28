@@ -280,6 +280,7 @@ class SalesTest extends FinanceTestCase
         $this->assertSame($before, (string) $cash->current_balance);
 
         $lines = JournalEntryLine::query()
+            ->with('account')
             ->whereHas('entry', fn ($query) => $query
                 ->where('source_type', $sale->getMorphClass())
                 ->where('source_id', $sale->id))

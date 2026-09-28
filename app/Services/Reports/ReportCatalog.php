@@ -35,7 +35,7 @@ final class ReportCatalog
             self::entry('payables', 'Accounts payable', PermissionName::PurchaseView),
             self::entry('profit-loss', 'Profit and loss', PermissionName::ProfitLossView),
             self::entry('balance-sheet', 'Balance sheet', PermissionName::BalanceSheetView),
-            self::entry('trial-balance', 'Trial balance', PermissionName::ReportView),
+            self::entry('trial-balance', 'Trial balance', PermissionName::TrialBalanceView),
             self::entry('general-ledger', 'General ledger', PermissionName::AccountingView),
             self::entry('monthly', 'Monthly business report', PermissionName::ReportView),
         ];

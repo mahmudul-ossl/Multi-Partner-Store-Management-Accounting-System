@@ -140,14 +140,17 @@ class ReportsTest extends FinanceTestCase
                     $keys = collect($cards)->pluck('key');
 
                     return $keys->contains('investment')
-                        && $keys->contains('net_profit')
+                        && $keys->contains('pending_approvals')
+                        && ! $keys->contains('net_profit')
+                        && ! $keys->contains('gross_profit')
                         && ! $keys->contains('cash')
                         && ! $keys->contains('sales');
                 })
                 ->where('summary.charts', function ($charts): bool {
                     $keys = collect($charts)->pluck('key');
 
-                    return $keys->contains('profit')
+                    return $keys->contains('promotion')
+                        && ! $keys->contains('profit')
                         && ! $keys->contains('investment')
                         && ! $keys->contains('sales');
                 }));

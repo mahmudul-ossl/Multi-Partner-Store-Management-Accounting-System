@@ -3,22 +3,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
-    image: mpstore-app
+      target: production
+    image: mpstore-app:prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_HOST: mysql
+      REDIS_HOST: redis
     healthcheck:
       test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 20s
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      DB_HOST: mysql
-      REDIS_HOST: redis
-    volumes:
-      - .:/var/www/html
+      start_period: 40s
     depends_on:
       mysql:
         condition: service_healthy
@@ -28,13 +28,14 @@ services:
       - mpstore
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    image: mpstore-nginx:prod
     restart: unless-stopped
     ports:
       - "${APP_PORT:-8080}:80"
-    volumes:
-      - .:/var/www/html:ro
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       app:
         condition: service_healthy
@@ -60,8 +61,6 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --local-infile=0
       - --skip-symbolic-links
-    ports:
-      - "${DB_FORWARD_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
@@ -89,15 +88,15 @@ services:
       - mpstore
 
   queue:
-    image: mpstore-app
+    image: mpstore-app:prod
     restart: unless-stopped
     env_file:
       - .env
     environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
       DB_HOST: mysql
       REDIS_HOST: redis
-    volumes:
-      - .:/var/www/html
     depends_on:
       app:
         condition: service_healthy
@@ -112,15 +111,15 @@ services:
       - mpstore
 
   scheduler:
-    image: mpstore-app
+    image: mpstore-app:prod
     restart: unless-stopped
     env_file:
       - .env
     environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
       DB_HOST: mysql
       REDIS_HOST: redis
-    volumes:
-      - .:/var/www/html
     depends_on:
       app:
         condition: service_healthy
@@ -131,23 +130,6 @@ services:
       timeout: 10s
       retries: 8
       start_period: 20s
-    networks:
-      - mpstore
-
-  phpmyadmin:
-    image: phpmyadmin:5
-    profiles: ["tools"]
-    restart: unless-stopped
-    ports:
-      - "${PHPMYADMIN_PORT:-8081}:80"
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_USER: ${DB_USERNAME}
-      PMA_PASSWORD: ${DB_PASSWORD}
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - mpstore
 

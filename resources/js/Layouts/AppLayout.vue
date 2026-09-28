@@ -47,7 +47,7 @@ const navigation = computed(() => [
     { label: 'Bank report', href: '/accounting/reports/bank', show: can('accounting.view') },
     { label: 'Profit & loss', href: '/accounting/reports/profit-loss', show: can('profit_loss.view') },
     { label: 'Balance sheet', href: '/accounting/reports/balance-sheet', show: can('balance_sheet.view') },
-    { label: 'Trial balance', href: '/accounting/reports/trial-balance', show: can('report.view') },
+    { label: 'Trial balance', href: '/accounting/reports/trial-balance', show: can('trial_balance.view') },
     { label: 'Profit allocations', href: '/accounting/allocations', show: can('accounting.view') },
     { label: 'Period close', href: '/accounting/periods', show: can('accounting.view') },
     { label: 'Approval settings', href: '/settings/approvals', show: can('settings.manage') },

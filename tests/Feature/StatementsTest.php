@@ -328,7 +328,8 @@ class StatementsTest extends FinanceTestCase
         $this->actingAs($viewer)->get('/accounting/reports/trial-balance')->assertOk()->assertInertia(fn ($page) => $page->component('Accounting/TrialBalance'));
         $this->actingAs($inventory)->get('/accounting/reports/profit-loss')->assertForbidden();
         $this->actingAs($partner)->get('/accounting/reports/balance-sheet')->assertForbidden();
-        $this->actingAs($partner)->get('/accounting/reports/profit-loss')->assertOk();
+        $this->actingAs($partner)->get('/accounting/reports/profit-loss')->assertForbidden();
+        $this->actingAs($partner)->get('/accounting/reports/trial-balance')->assertForbidden();
         $this->actingAs($viewer)->post('/accounting/allocations', [
             'amount' => '100.00',
             'transaction_date' => '2026-09-01',

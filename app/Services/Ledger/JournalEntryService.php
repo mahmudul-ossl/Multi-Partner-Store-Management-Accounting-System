@@ -13,6 +13,7 @@ use App\Models\JournalEntry;
 use App\Models\User;
 use App\Services\Accounting\PeriodGuard;
 use App\Services\AuditLogService;
+use App\Support\DashboardCache;
 use App\Support\Money;
 use App\Support\Sequence;
 use Illuminate\Database\Eloquent\Model;
@@ -73,6 +74,8 @@ final class JournalEntryService
                 'description' => $entry->description,
                 'status' => $entry->status->value,
             ], $actor);
+
+            DashboardCache::bump();
 
             return $entry->load('lines');
         });

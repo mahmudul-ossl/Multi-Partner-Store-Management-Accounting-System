@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 /**
  * Database alerts for low stock and amounts still due.
  */
-class OperationalAlert extends Notification
+class OperationalAlert extends Notification implements ShouldQueue
 {
     use Queueable;
 

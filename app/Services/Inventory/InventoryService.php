@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\OperationalNotifier;
 use App\Support\Costing;
+use App\Support\DashboardCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -78,6 +79,8 @@ final class InventoryService
             if (Costing::compareQty($next, (string) $product->reorder_level) !== 1) {
                 $this->alerts->lowStock($product, $next);
             }
+
+            DashboardCache::bump();
 
             return $movement;
         });
