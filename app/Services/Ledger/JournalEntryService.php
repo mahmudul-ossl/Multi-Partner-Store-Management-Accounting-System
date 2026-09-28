@@ -52,6 +52,7 @@ final class JournalEntryService
                 $entry->lines()->create([
                     'chart_of_account_id' => $line['chart_of_account_id'],
                     'partner_id' => $line['partner_id'],
+                    'supplier_id' => $line['supplier_id'],
                     'financial_account_id' => $line['financial_account_id'],
                     'debit' => $line['debit'],
                     'credit' => $line['credit'],
@@ -89,6 +90,7 @@ final class JournalEntryService
             $lines = $entry->lines->map(fn ($line): array => [
                 'account_code' => $line->account->code,
                 'partner_id' => $line->partner_id,
+                'supplier_id' => $line->supplier_id,
                 'financial_account_id' => $line->financial_account_id,
                 'debit' => (string) $line->credit,
                 'credit' => (string) $line->debit,
@@ -129,7 +131,7 @@ final class JournalEntryService
 
     /**
      * @param  list<array<string, mixed>>  $lines
-     * @return list<array{chart_of_account_id: int, partner_id: int|null, financial_account_id: int|null, debit: string, credit: string, description: string|null}>
+     * @return list<array{chart_of_account_id: int, partner_id: int|null, supplier_id: int|null, financial_account_id: int|null, debit: string, credit: string, description: string|null}>
      */
     private function normalize(array $lines): array
     {
@@ -171,6 +173,7 @@ final class JournalEntryService
             $normalized[] = [
                 'chart_of_account_id' => $account->id,
                 'partner_id' => isset($line['partner_id']) ? (int) $line['partner_id'] : null,
+                'supplier_id' => isset($line['supplier_id']) ? (int) $line['supplier_id'] : null,
                 'financial_account_id' => $financialId,
                 'debit' => $debit,
                 'credit' => $credit,

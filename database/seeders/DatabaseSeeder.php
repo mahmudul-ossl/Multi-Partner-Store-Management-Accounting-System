@@ -185,6 +185,7 @@ class DatabaseSeeder extends Seeder
             ApprovalThresholdSeeder::class,
             PartnerFinanceExampleSeeder::class,
             AccountingExampleSeeder::class,
+            InventoryExampleSeeder::class,
         ]);
     }
 

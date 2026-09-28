@@ -14,8 +14,13 @@ use App\Exceptions\DuplicateApprovalException;
 use App\Models\AccountTransfer;
 use App\Models\ApprovalRequest;
 use App\Models\ManualJournal;
+use App\Models\Purchase;
+use App\Models\PurchaseReturn;
+use App\Models\StockAdjustment;
+use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\Inventory\InventoryPoster;
 use App\Services\Ledger\AccountingPoster;
 use App\Services\Ledger\PartnerFinancePoster;
 use App\Support\Money;
@@ -30,6 +35,7 @@ final class ApprovalService
         private readonly ApprovalNotifier $notifier,
         private readonly PartnerFinancePoster $poster,
         private readonly AccountingPoster $accounting,
+        private readonly InventoryPoster $inventory,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -182,6 +188,12 @@ final class ApprovalService
     {
         if ($document instanceof ManualJournal || $document instanceof AccountTransfer) {
             $this->accounting->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof Purchase || $document instanceof PurchaseReturn || $document instanceof SupplierPayment || $document instanceof StockAdjustment) {
+            $this->inventory->post($document, $actor);
 
             return;
         }

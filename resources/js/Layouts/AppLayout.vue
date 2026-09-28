@@ -19,6 +19,15 @@ const navigation = computed(() => [
     { label: 'Withdrawals', href: '/withdrawals', show: can('partner.withdrawal.view') },
     { label: 'Transfers', href: '/transfers', show: can('partner.transfer.view') },
     { label: 'My partnership', href: page.props.auth.user?.partner_id ? `/partners/${page.props.auth.user.partner_id}/dashboard` : '/partners', show: Boolean(page.props.auth.user?.partner_id) },
+    { label: 'Products', href: '/inventory/products', show: can('product.view') },
+    { label: 'Catalog', href: '/inventory/catalog', show: can('product.view') },
+    { label: 'Suppliers', href: '/inventory/suppliers', show: can('supplier.view') },
+    { label: 'Purchases', href: '/inventory/purchases', show: can('purchase.view') },
+    { label: 'Purchase returns', href: '/inventory/returns', show: can('purchase.view') },
+    { label: 'Stock', href: '/inventory/stock', show: can('stock.view') },
+    { label: 'Stock movements', href: '/inventory/stock/movements', show: can('stock.view') },
+    { label: 'Low stock', href: '/inventory/stock/low', show: can('stock.view') },
+    { label: 'Stock adjustments', href: '/inventory/adjustments', show: can('stock.view') },
     { label: 'Partners', href: '/partners', show: can('partner.view') },
     { label: 'Users', href: '/users', show: can('user.manage') },
     { label: 'Roles', href: '/roles', show: can('role.manage') },
@@ -35,7 +44,6 @@ const navigation = computed(() => [
 ].filter((item) => item.show));
 
 const later = [
-    'Inventory',
     'Sales',
     'Reports',
 ];
@@ -79,6 +87,24 @@ const crumbs = computed(() => {
         items.push({ label: 'Cash report' });
     } else if (path.startsWith('/accounting/reports/bank')) {
         items.push({ label: 'Bank report' });
+    } else if (path.startsWith('/inventory/products')) {
+        items.push({ label: 'Products', href: '/inventory/products' });
+    } else if (path.startsWith('/inventory/catalog')) {
+        items.push({ label: 'Catalog' });
+    } else if (path.startsWith('/inventory/suppliers')) {
+        items.push({ label: 'Suppliers', href: '/inventory/suppliers' });
+    } else if (path.startsWith('/inventory/purchases')) {
+        items.push({ label: 'Purchases', href: '/inventory/purchases' });
+    } else if (path.startsWith('/inventory/returns')) {
+        items.push({ label: 'Purchase returns', href: '/inventory/returns' });
+    } else if (path.startsWith('/inventory/stock/low')) {
+        items.push({ label: 'Low stock' });
+    } else if (path.startsWith('/inventory/stock/movements')) {
+        items.push({ label: 'Stock movements' });
+    } else if (path.startsWith('/inventory/stock')) {
+        items.push({ label: 'Stock' });
+    } else if (path.startsWith('/inventory/adjustments')) {
+        items.push({ label: 'Stock adjustments' });
     } else if (path.startsWith('/settings')) {
         items.push({ label: 'Approval settings' });
     }
