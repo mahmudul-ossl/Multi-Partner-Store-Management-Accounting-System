@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Policies;
+
+use App\Enums\PermissionName;
+use App\Models\User;
+
+class AuditLogPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return $user->can(PermissionName::AuditLogView->value);
+    }
+}

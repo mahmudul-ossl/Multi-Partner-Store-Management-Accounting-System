@@ -1,0 +1,155 @@
+<script setup>
+import { computed, ref, watch } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { useCan } from '../composables/useCan';
+
+const props = defineProps({
+    title: { type: String, required: true },
+});
+
+const page = usePage();
+const { can } = useCan();
+const sidebarOpen = ref(false);
+const toasts = ref([]);
+
+const navigation = computed(() => [
+    { label: 'Dashboard', href: '/dashboard', show: true },
+    { label: 'Partners', href: '/partners', show: can('partner.view') },
+    { label: 'Users', href: '/users', show: can('user.manage') },
+    { label: 'Roles', href: '/roles', show: can('role.manage') },
+    { label: 'Audit log', href: '/audit-logs', show: can('audit_log.view') },
+].filter((item) => item.show));
+
+const later = [
+    'Investments',
+    'Withdrawals',
+    'Inventory',
+    'Sales',
+    'Accounting',
+    'Reports',
+];
+
+const crumbs = computed(() => {
+    const path = page.url.split('?')[0];
+    const items = [{ label: 'Dashboard', href: '/dashboard' }];
+
+    if (path.startsWith('/partners')) {
+        items.push({ label: 'Partners', href: '/partners' });
+        if (path !== '/partners') {
+            items.push({ label: 'Details' });
+        }
+    } else if (path.startsWith('/users')) {
+        items.push({ label: 'Users' });
+    } else if (path.startsWith('/roles')) {
+        items.push({ label: 'Roles' });
+    } else if (path.startsWith('/audit-logs')) {
+        items.push({ label: 'Audit log' });
+    }
+
+    return items;
+});
+
+const user = computed(() => page.props.auth.user);
+
+watch(() => page.props.flash, (flash) => {
+    if (flash?.success) {
+        pushToast(flash.success, 'success');
+    }
+    if (flash?.error) {
+        pushToast(flash.error, 'error');
+    }
+}, { deep: true, immediate: true });
+
+function pushToast(message, tone) {
+    const id = `${Date.now()}-${Math.random()}`;
+    toasts.value.push({ id, message, tone });
+    setTimeout(() => {
+        toasts.value = toasts.value.filter((toast) => toast.id !== id);
+    }, 4000);
+}
+
+function logout() {
+    router.post('/logout');
+}
+
+function isActive(href) {
+    const path = page.url.split('?')[0];
+    return path === href || (href !== '/dashboard' && path.startsWith(href));
+}
+</script>
+
+<template>
+    <div class="min-h-screen">
+        <Head :title="props.title" />
+
+        <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" @click="sidebarOpen = false" />
+
+        <aside
+            class="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-slate-950 text-slate-200 transition-transform lg:translate-x-0"
+            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+        >
+            <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 text-sm font-bold text-white">৳</div>
+                <div>
+                    <p class="text-sm font-semibold text-white">{{ page.props.app.name }}</p>
+                    <p class="text-xs text-slate-400">Partner operations</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+                <Link
+                    v-for="item in navigation"
+                    :key="item.href"
+                    :href="item.href"
+                    class="block rounded-lg px-3 py-2 text-sm font-medium"
+                    :class="isActive(item.href) ? 'bg-teal-600 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+                    @click="sidebarOpen = false"
+                >
+                    {{ item.label }}
+                </Link>
+
+                <p class="px-3 pt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Coming later</p>
+                <p v-for="item in later" :key="item" class="px-3 py-1.5 text-sm text-slate-500">
+                    {{ item }}
+                </p>
+            </nav>
+        </aside>
+
+        <div class="lg:pl-72">
+            <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
+                <div class="flex items-center gap-3">
+                    <button class="btn btn-secondary px-2.5 lg:hidden" type="button" @click="sidebarOpen = true">Menu</button>
+                    <nav class="flex flex-wrap items-center gap-2 text-sm text-slate-500" aria-label="Breadcrumb">
+                        <template v-for="(crumb, index) in crumbs" :key="crumb.label">
+                            <span v-if="index > 0">/</span>
+                            <Link v-if="crumb.href && index < crumbs.length - 1" :href="crumb.href" class="hover:text-teal-700">{{ crumb.label }}</Link>
+                            <span v-else class="font-medium text-slate-800">{{ crumb.label }}</span>
+                        </template>
+                    </nav>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="hidden text-right sm:block">
+                        <p class="text-sm font-semibold text-slate-900">{{ user?.name }}</p>
+                        <p class="text-xs text-slate-500">{{ user?.roles?.[0] }}</p>
+                    </div>
+                    <button class="btn btn-secondary" type="button" @click="logout">Log out</button>
+                </div>
+            </header>
+
+            <main class="px-4 py-6 sm:px-6 lg:px-8">
+                <slot />
+            </main>
+        </div>
+
+        <div class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 px-4">
+            <div
+                v-for="toast in toasts"
+                :key="toast.id"
+                class="pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg"
+                :class="toast.tone === 'error' ? 'bg-red-600' : 'bg-slate-900'"
+            >
+                {{ toast.message }}
+            </div>
+        </div>
+    </div>
+</template>
