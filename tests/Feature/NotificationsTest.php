@@ -225,24 +225,32 @@ class NotificationsTest extends FinanceTestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Notifications/Index')
-                ->where('notifications.per_page', 15)
-                ->where('notifications.total', 16)
-                ->where('notifications.current_page', 1)
-                ->where('notifications.last_page', 2)
-                ->where('notifications.from', 1)
-                ->where('notifications.to', 15)
-                ->has('notifications.data', 15)
-                ->where('notifications.data.0.message', 'Item 15'));
+                ->where('notifications.unread', 16)
+                ->has('notifications.operational', 8)
+                ->where('notifications.operational.0.message', 'Item 15')
+                ->has('notifications.approvals', 0)
+                ->missing('notifications.per_page')
+                ->missing('notifications.data')
+                ->where('notificationList.per_page', 15)
+                ->where('notificationList.total', 16)
+                ->where('notificationList.current_page', 1)
+                ->where('notificationList.last_page', 2)
+                ->where('notificationList.from', 1)
+                ->where('notificationList.to', 15)
+                ->has('notificationList.data', 15)
+                ->where('notificationList.data.0.message', 'Item 15'));
 
         $this->actingAs($admin)
             ->get(route('notifications.index', ['page' => 2]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('notifications.current_page', 2)
-                ->where('notifications.from', 16)
-                ->where('notifications.to', 16)
-                ->has('notifications.data', 1)
-                ->where('notifications.data.0.message', 'Item 0'));
+                ->where('notifications.unread', 16)
+                ->has('notifications.operational', 8)
+                ->where('notificationList.current_page', 2)
+                ->where('notificationList.from', 16)
+                ->where('notificationList.to', 16)
+                ->has('notificationList.data', 1)
+                ->where('notificationList.data.0.message', 'Item 0'));
     }
 
     /**

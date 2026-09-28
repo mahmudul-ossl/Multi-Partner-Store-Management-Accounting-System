@@ -21,7 +21,7 @@ class NotificationController extends Controller
         $rows = (clone $query)->forPage($page, $perPage)->get();
 
         return Inertia::render('Notifications/Index', [
-            'notifications' => [
+            'notificationList' => [
                 'data' => $rows->map(fn ($notification): array => NotificationFeed::present($notification))->all(),
                 'current_page' => $page,
                 'last_page' => max(1, (int) ceil($total / $perPage)),
