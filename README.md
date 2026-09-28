@@ -245,6 +245,13 @@ npm run build
 
 Set `SEED_SUPER_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` in `.env` before seeding. The seeder refuses to run when those values are empty. The values in `.env.example` are for a local demo only. Change them before any shared environment.
 
+Quote any value that contains `#` or a space. Dotenv treats an unquoted `#` as a comment, so `SEED_SUPER_ADMIN_PASSWORD=SuperAdmin#2026` is stored as `SuperAdmin` and the documented login fails. The example file keeps the full passwords:
+
+```dotenv
+SEED_SUPER_ADMIN_PASSWORD="SuperAdmin#2026"
+SEED_DEMO_PASSWORD="Partner#2026"
+```
+
 ## Docker Setup
 
 `docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, and a `queue` worker. phpMyAdmin is optional and stays off unless you opt in:
@@ -281,7 +288,8 @@ All credentials and connections come from the environment. Nothing in PHP hard-c
 | `REDIS_CLIENT`, `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_PORT` | Redis. |
 | `CACHE_STORE`, `QUEUE_CONNECTION`, `SESSION_DRIVER` | `redis` in `.env.example`. |
 | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Mail. New accounts send `AccountCreated` through the queue. |
-| `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD` | Initial seed only. |
+| `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD` | Initial seed only. Quote passwords that contain `#`. |
+| `TRUSTED_PROXIES` | Empty by default. Comma-separated proxy IPs/CIDRs, or `*` behind Cloudflare Tunnel so HTTPS forwarded headers are honored. |
 
 To run on the host without Redis, set `CACHE_STORE=database`, `SESSION_DRIVER=database`, and `QUEUE_CONNECTION=database` after migrating.
 
@@ -343,6 +351,7 @@ npm run build
 - Audit rows redact passwords and cannot be updated or deleted.
 - `App\Services\Approvals\SelfApprovalGuard` throws `You cannot approve your own transaction.` Approval, duplicate-approval, and permission checks run in `ApprovalService` with row locks. The UI cannot bypass them.
 - Journals are posted only on final approval, must balance, and are reversed instead of deleted.
+- `TRUSTED_PROXIES` controls `TrustProxies`. Leave it empty on a direct connection. Set `TRUSTED_PROXIES=*` only when the origin is reachable solely through a trusted proxy such as Cloudflare; otherwise list that proxy's addresses. Forwarded `https` is ignored until a proxy is trusted, which is what keeps asset URLs on HTTPS behind a tunnel.
 
 ## Default seeded logins
 
@@ -350,13 +359,13 @@ These match `.env.example`. Replace the passwords before sharing the environment
 
 | Role | Email | Password variable |
 | --- | --- | --- |
-| Super Admin | `superadmin@mpstore.test` | `SEED_SUPER_ADMIN_PASSWORD` (`SuperAdmin#2026` in the example file) |
-| Admin | `admin@mpstore.test` | `SEED_DEMO_PASSWORD` (`Partner#2026`) |
-| Accountant | `accountant@mpstore.test` | `SEED_DEMO_PASSWORD` |
-| Inventory Manager | `inventory@mpstore.test` | `SEED_DEMO_PASSWORD` |
-| Sales Manager | `sales@mpstore.test` | `SEED_DEMO_PASSWORD` |
-| Viewer | `viewer@mpstore.test` | `SEED_DEMO_PASSWORD` |
-| Partner (Rahim Uddin, Fatema Akter, Karim Hossain, Nusrat Jahan, Ayesha Siddiqua) | `rahim.uddin@mpstore.test` and the matching `first.last@mpstore.test` addresses | `SEED_DEMO_PASSWORD` |
+| Super Admin | `superadmin@mpstore.test` | `SuperAdmin#2026` (`SEED_SUPER_ADMIN_PASSWORD="SuperAdmin#2026"`) |
+| Admin | `admin@mpstore.test` | `Partner#2026` (`SEED_DEMO_PASSWORD="Partner#2026"`) |
+| Accountant | `accountant@mpstore.test` | `Partner#2026` |
+| Inventory Manager | `inventory@mpstore.test` | `Partner#2026` |
+| Sales Manager | `sales@mpstore.test` | `Partner#2026` |
+| Viewer | `viewer@mpstore.test` | `Partner#2026` |
+| Partner (Rahim Uddin, Fatema Akter, Karim Hossain, Nusrat Jahan, Ayesha Siddiqua) | `rahim.uddin@mpstore.test` and the matching `first.last@mpstore.test` addresses | `Partner#2026` |
 
 Eight partners are seeded. Ownership and investment percentages are different for several of them and both sum to 100. Shahidul Islam, Tanvir Ahmed, and Mahmuda Khatun have no login.
 

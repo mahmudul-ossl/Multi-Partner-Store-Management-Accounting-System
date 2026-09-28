@@ -22,6 +22,12 @@ return [
 
     'date_format' => env('APP_DATE_FORMAT', 'd-M-Y'),
 
+    /*
+    | Comma-separated proxy addresses, or "*". Empty means forwarded headers
+    | are ignored. Read from config so `config:cache` still applies.
+    */
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
     'seed' => [
         'super_admin_name' => env('SEED_SUPER_ADMIN_NAME', 'System Administrator'),
         'super_admin_email' => env('SEED_SUPER_ADMIN_EMAIL', 'superadmin@mpstore.test'),
