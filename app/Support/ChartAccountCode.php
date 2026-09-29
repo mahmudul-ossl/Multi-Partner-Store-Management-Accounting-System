@@ -49,6 +49,22 @@ final class ChartAccountCode
 
     public const OtherExpenses = '5600';
 
+    public const Electricity = '5210';
+
+    public const Internet = '5220';
+
+    public const Packaging = '5230';
+
+    public const Marketing = '5240';
+
+    public const FacebookAds = '5250';
+
+    public const Software = '5260';
+
+    public const Transport = '5270';
+
+    public const OfficeExpense = '5280';
+
     /**
      * Equity accounts that make up a partner statement.
      *

@@ -187,6 +187,7 @@ class DatabaseSeeder extends Seeder
             AccountingExampleSeeder::class,
             InventoryExampleSeeder::class,
             SalesExampleSeeder::class,
+            SpendingExampleSeeder::class,
         ]);
     }
 

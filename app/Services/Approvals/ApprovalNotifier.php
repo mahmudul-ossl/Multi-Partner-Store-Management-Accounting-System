@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Approvals;
 
 use App\Models\ApprovalRequest;
+use App\Models\Expense;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
+use App\Models\PromotionPartnerExpense;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
 use App\Models\Refund;
@@ -96,6 +98,8 @@ final class ApprovalNotifier
             $document instanceof StockAdjustment => $document->loadMissing('product')->product?->name ?? '—',
             $document instanceof Sale, $document instanceof Refund => $document->loadMissing('customer')->customer?->name ?? '—',
             $document instanceof SalesCancellation => $document->loadMissing('sale.customer')->sale?->customer?->name ?? '—',
+            $document instanceof PromotionPartnerExpense => $document->loadMissing('partner')->partner?->name ?? '—',
+            $document instanceof Expense => $document->partner_id === null ? 'Business' : ($document->loadMissing('partner')->partner?->name ?? '—'),
             default => '—',
         };
     }
