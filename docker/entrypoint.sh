@@ -22,11 +22,19 @@ if [ "$(id -u)" -eq 0 ]; then
         bootstrap/cache \
         "${SECRETS_DIR}"
     chown -R www-data:www-data storage bootstrap/cache "${SECRETS_DIR}"
-    # Named volumes are root-owned until this chown. Workers and php-fpm then run as www-data.
-    exec runuser -u www-data -- /usr/local/bin/entrypoint.sh "$@"
 fi
 
 umask 022
+
+# Artisan, the queue worker, and the scheduler run as www-data.
+# php-fpm stays root so the master can open its error log; the pool user is www-data.
+run_as_www() {
+    if [ "$(id -u)" -eq 0 ]; then
+        runuser --preserve-environment -u www-data -- "$@"
+    else
+        "$@"
+    fi
+}
 
 read_key_file() {
     if [ -s "${KEY_FILE}" ]; then
@@ -63,7 +71,7 @@ write_env_if_missing() {
         return 0
     fi
 
-    (umask 077; php <<'PHP'
+    (umask 077; run_as_www php <<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -166,6 +174,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database}",
         $username,
         $password,
+        [PDO::ATTR_TIMEOUT => 3],
     );
 } catch (Throwable) {
     fwrite(STDERR, "waiting for mysql\n");
@@ -197,7 +206,7 @@ seed_once() {
     fi
 
     echo "Seeding demo data."
-    php <<'PHP'
+    run_as_www php <<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -235,10 +244,10 @@ bootstrap_database() {
     exec 9>"${LOCK_FILE}"
     flock -w 600 9
     wait_for_mysql
-    php artisan migrate --force --no-interaction
+    run_as_www php artisan migrate --force --no-interaction
     seed_once
     if [ ! -L public/storage ]; then
-        php artisan storage:link --no-interaction
+        run_as_www php artisan storage:link --no-interaction
     fi
     touch "${READY_FILE}"
     flock -u 9
@@ -266,7 +275,15 @@ else
     wait_until_ready
 fi
 
-php artisan config:cache --no-interaction
-php artisan route:cache --no-interaction
+run_as_www php artisan config:cache --no-interaction
+run_as_www php artisan route:cache --no-interaction
+
+if [ "${1:-}" = "php-fpm" ]; then
+    exec php-fpm
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    exec runuser --preserve-environment -u www-data -- "$@"
+fi
 
 exec "$@"

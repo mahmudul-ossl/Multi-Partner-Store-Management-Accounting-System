@@ -60,8 +60,8 @@ COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/98-opcache.ini
 COPY --from=vendor --chown=www-data:www-data /app /var/www/html
 COPY --from=frontend --chown=www-data:www-data /app/public/build /var/www/html/public/build
 
-# Root only for the entrypoint's volume chown. It re-executes as www-data
-# before migrations, php-fpm, the queue worker, and the scheduler.
+# php-fpm's master stays root so it can open /proc/self/fd/2. The pool user,
+# migrations, queue worker, and scheduler run as www-data.
 # hadolint ignore=DL3002
 USER root
 
