@@ -21,6 +21,7 @@ use App\Http\Controllers\ManualJournalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerFinanceController;
+use App\Http\Controllers\PartnerProfileController;
 use App\Http\Controllers\PartnerUserController;
 use App\Http\Controllers\PeriodController;
 use App\Http\Controllers\ProductController;
@@ -97,6 +98,9 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/partners/{partner}/dashboard', [PartnerFinanceController::class, 'dashboard'])->name('partners.dashboard');
     Route::get('/partners/{partner}/statement', [PartnerFinanceController::class, 'statement'])->name('partners.statement');
+    Route::get('/partners/{partner}/profile', [PartnerProfileController::class, 'show'])->name('partners.profile');
+    Route::get('/partners/{partner}/profile/excel', [PartnerProfileController::class, 'excel'])->name('partners.profile.excel');
+    Route::get('/partners/{partner}/profile/pdf', [PartnerProfileController::class, 'pdf'])->name('partners.profile.pdf');
 
     Route::get('/accounting/chart', [ChartOfAccountController::class, 'index'])->name('accounting.chart.index');
     Route::post('/accounting/chart', [ChartOfAccountController::class, 'store'])->name('accounting.chart.store');

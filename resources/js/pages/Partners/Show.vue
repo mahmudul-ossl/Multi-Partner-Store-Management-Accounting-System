@@ -62,6 +62,7 @@ function remove() {
                 </div>
             </div>
             <div class="flex flex-wrap gap-3">
+                <Link v-if="allowed('partner_statement.view')" :href="`/partners/${partner.id}/profile`" class="btn btn-secondary">Profile</Link>
                 <Link v-if="allowed('partner_statement.view')" :href="`/partners/${partner.id}/dashboard`" class="btn btn-secondary">Dashboard</Link>
                 <Link v-if="allowed('partner_statement.view')" :href="`/partners/${partner.id}/statement`" class="btn btn-secondary">Statement</Link>
                 <Link href="/partners" class="btn btn-secondary">Back</Link>

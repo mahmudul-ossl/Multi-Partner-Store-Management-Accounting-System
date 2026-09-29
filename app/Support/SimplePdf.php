@@ -29,7 +29,15 @@ final class SimplePdf
     public static function render(array $lines): string
     {
         $font = EmbeddedFont::noto();
-        $pages = array_chunk($lines === [] ? [' '] : $lines, 42);
+        $visual = [];
+
+        foreach ($lines === [] ? [' '] : $lines as $line) {
+            foreach (self::wrap($line, $font, 10, 515) as $row) {
+                $visual[] = $row;
+            }
+        }
+
+        $pages = array_chunk($visual, 50);
         /** @var array<int, int> $used */
         $used = [];
         $contents = [];
@@ -39,7 +47,7 @@ final class SimplePdf
         }
 
         $objects = [];
-        $objects[1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+        $objects[1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
         $next = 2;
         $resources = '/Font << /F1 1 0 R';
 
@@ -117,7 +125,7 @@ final class SimplePdf
                 $commands .= "T*\n";
             }
 
-            $commands .= self::showLine(mb_substr($line, 0, 110), $font, $used);
+            $commands .= self::showLine($line, $font, $used);
         }
 
         return $commands."ET\n";
@@ -162,7 +170,8 @@ final class SimplePdf
 
         foreach ($characters as $character) {
             $codepoint = mb_ord($character);
-            $embed = $codepoint > 126 && $font->glyph($codepoint) !== null;
+            $winAnsi = self::winAnsiByte($codepoint);
+            $embed = $winAnsi === null && $codepoint > 126 && $font->glyph($codepoint) !== null;
             $next = $embed ? 'embed' : 'ascii';
 
             if ($mode !== '' && $next !== $mode) {
@@ -170,7 +179,13 @@ final class SimplePdf
             }
 
             $mode = $next;
-            $buffer .= $embed ? $character : ($codepoint > 126 ? '?' : $character);
+            if ($embed) {
+                $buffer .= $character;
+            } elseif ($winAnsi !== null) {
+                $buffer .= chr($winAnsi);
+            } else {
+                $buffer .= '?';
+            }
         }
 
         $flush();
@@ -276,5 +291,187 @@ final class SimplePdf
     private static function escape(string $line): string
     {
         return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $line);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function wrap(string $text, EmbeddedFont $font, float $size, float $maxWidth): array
+    {
+        $text = str_replace(["\r\n", "\r", "\n"], ' ', $text);
+
+        if (trim($text) === '') {
+            return [''];
+        }
+
+        $tokens = preg_split('/( +)/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$text];
+        $lines = [];
+        $current = '';
+        $width = 0.0;
+
+        foreach ($tokens as $token) {
+            if ($token === '' || ($current === '' && trim($token) === '')) {
+                continue;
+            }
+
+            $tokenWidth = self::textWidth($token, $font, $size);
+
+            if ($current !== '' && $width + $tokenWidth > $maxWidth) {
+                $lines[] = trim($token) === '' ? rtrim($current).' ' : $current;
+                $current = '';
+                $width = 0.0;
+
+                if (trim($token) === '') {
+                    continue;
+                }
+
+                $tokenWidth = self::textWidth($token, $font, $size);
+            }
+
+            if ($tokenWidth > $maxWidth) {
+                foreach (self::breakToken($token, $font, $size, $maxWidth) as $piece) {
+                    if ($current !== '') {
+                        $lines[] = $current;
+                    }
+                    $current = $piece;
+                    $width = self::textWidth($piece, $font, $size);
+                }
+
+                continue;
+            }
+
+            $current .= $token;
+            $width += $tokenWidth;
+        }
+
+        if ($current !== '') {
+            $lines[] = rtrim($current);
+        }
+
+        return $lines === [] ? [''] : $lines;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function breakToken(string $token, EmbeddedFont $font, float $size, float $maxWidth): array
+    {
+        $pieces = [];
+        $current = '';
+        $width = 0.0;
+        $characters = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($characters as $character) {
+            $characterWidth = self::textWidth($character, $font, $size);
+
+            if ($current !== '' && $width + $characterWidth > $maxWidth) {
+                $pieces[] = $current;
+                $current = $character;
+                $width = $characterWidth;
+
+                continue;
+            }
+
+            $current .= $character;
+            $width += $characterWidth;
+        }
+
+        if ($current !== '') {
+            $pieces[] = $current;
+        }
+
+        return $pieces === [] ? [''] : $pieces;
+    }
+
+    private static function textWidth(string $text, EmbeddedFont $font, float $size): float
+    {
+        $width = 0.0;
+        $characters = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($characters as $character) {
+            $codepoint = mb_ord($character);
+            $units = self::helveticaUnits($codepoint);
+
+            if ($units !== null) {
+                $width += $units * $size / 1000;
+
+                continue;
+            }
+
+            $glyph = $font->glyph($codepoint);
+            $width += $glyph === null
+                ? (0.5 * $size)
+                : ($font->scale($font->advance($glyph)) * $size / 1000);
+        }
+
+        return $width;
+    }
+
+    private static function winAnsiByte(int $codepoint): ?int
+    {
+        if ($codepoint >= 32 && $codepoint <= 126) {
+            return $codepoint;
+        }
+
+        if ($codepoint >= 0xA0 && $codepoint <= 0xFF) {
+            return $codepoint;
+        }
+
+        return [
+            0x20AC => 0x80,
+            0x201A => 0x82,
+            0x0192 => 0x83,
+            0x201E => 0x84,
+            0x2026 => 0x85,
+            0x2020 => 0x86,
+            0x2021 => 0x87,
+            0x02C6 => 0x88,
+            0x2030 => 0x89,
+            0x0160 => 0x8A,
+            0x2039 => 0x8B,
+            0x0152 => 0x8C,
+            0x017D => 0x8E,
+            0x2018 => 0x91,
+            0x2019 => 0x92,
+            0x201C => 0x93,
+            0x201D => 0x94,
+            0x2022 => 0x95,
+            0x2013 => 0x96,
+            0x2014 => 0x97,
+            0x02DC => 0x98,
+            0x2122 => 0x99,
+            0x0161 => 0x9A,
+            0x203A => 0x9B,
+            0x0153 => 0x9C,
+            0x017E => 0x9E,
+            0x0178 => 0x9F,
+        ][$codepoint] ?? null;
+    }
+
+    private static function helveticaUnits(int $codepoint): ?int
+    {
+        if (self::winAnsiByte($codepoint) === null) {
+            return null;
+        }
+
+        static $widths = [
+            32 => 278, 33 => 278, 34 => 355, 35 => 556, 36 => 556, 37 => 889, 38 => 667, 39 => 191,
+            40 => 333, 41 => 333, 42 => 389, 43 => 584, 44 => 278, 45 => 333, 46 => 278, 47 => 278,
+            48 => 556, 49 => 556, 50 => 556, 51 => 556, 52 => 556, 53 => 556, 54 => 556, 55 => 556, 56 => 556, 57 => 556,
+            58 => 278, 59 => 278, 60 => 584, 61 => 584, 62 => 584, 63 => 556, 64 => 1015,
+            65 => 667, 66 => 667, 67 => 722, 68 => 722, 69 => 667, 70 => 611, 71 => 778, 72 => 722, 73 => 278, 74 => 500,
+            75 => 667, 76 => 556, 77 => 833, 78 => 722, 79 => 778, 80 => 667, 81 => 778, 82 => 722, 83 => 667, 84 => 611,
+            85 => 722, 86 => 667, 87 => 944, 88 => 667, 89 => 667, 90 => 611,
+            91 => 278, 92 => 278, 93 => 278, 94 => 469, 95 => 556, 96 => 333,
+            97 => 556, 98 => 556, 99 => 500, 100 => 556, 101 => 556, 102 => 278, 103 => 556, 104 => 556, 105 => 222, 106 => 222,
+            107 => 500, 108 => 222, 109 => 833, 110 => 556, 111 => 556, 112 => 556, 113 => 556, 114 => 333, 115 => 500, 116 => 278,
+            117 => 556, 118 => 500, 119 => 722, 120 => 500, 121 => 500, 122 => 500,
+            123 => 334, 124 => 260, 125 => 334, 126 => 584,
+            0xB7 => 278,
+        ];
+
+        $byte = self::winAnsiByte($codepoint);
+
+        return $widths[$codepoint] ?? $widths[$byte] ?? 556;
     }
 }

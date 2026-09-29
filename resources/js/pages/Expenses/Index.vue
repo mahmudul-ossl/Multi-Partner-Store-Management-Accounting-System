@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '../../Layouts/AppLayout.vue';
 import Modal from '../../Components/Modal.vue';
@@ -24,6 +24,14 @@ const form = useForm({
     partner_id: '',
     payment_method: 'cash',
     financial_account_id: props.accounts[0]?.id || '',
+});
+
+const otherError = computed(() => {
+    const errors = { ...form.errors };
+    delete errors.payment_method;
+    delete errors.financial_account_id;
+
+    return Object.values(errors)[0] || '';
 });
 
 function submit() {
@@ -107,6 +115,7 @@ function submit() {
                             <option value="">None</option>
                             <option v-for="row in methods" :key="row.value" :value="row.value">{{ row.label }}</option>
                         </select>
+                        <p v-if="form.errors.payment_method" class="error">{{ form.errors.payment_method }}</p>
                     </div>
                     <div>
                         <label class="label">Pay from</label>
@@ -114,13 +123,14 @@ function submit() {
                             <option value="">None</option>
                             <option v-for="row in accounts" :key="row.id" :value="row.id">{{ row.name }}</option>
                         </select>
+                        <p v-if="form.errors.financial_account_id" class="error">{{ form.errors.financial_account_id }}</p>
                     </div>
                 </div>
                 <div>
                     <label class="label">Description</label>
                     <textarea v-model="form.description" class="field" rows="2" required></textarea>
                 </div>
-                <p v-if="Object.keys(form.errors).length" class="text-sm text-rose-700">{{ Object.values(form.errors)[0] }}</p>
+                <p v-if="otherError" class="text-sm text-rose-700">{{ otherError }}</p>
                 <div class="flex justify-end">
                     <button class="btn btn-primary" :disabled="form.processing" type="submit">Submit for approval</button>
                 </div>
