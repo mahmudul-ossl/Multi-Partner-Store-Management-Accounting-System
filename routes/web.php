@@ -7,6 +7,8 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerPaymentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialAccountController;
 use App\Http\Controllers\InvestmentController;
@@ -19,7 +21,11 @@ use App\Http\Controllers\PartnerUserController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseReturnController;
+use App\Http\Controllers\RefundController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SaleReturnController;
+use App\Http\Controllers\SalesCancellationController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\SupplierController;
@@ -138,7 +144,23 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('inventory.adjustments.index');
     Route::post('/inventory/adjustments', [StockAdjustmentController::class, 'store'])->name('inventory.adjustments.store');
 
+    Route::get('/sales/customers', [CustomerController::class, 'index'])->name('sales.customers.index');
+    Route::post('/sales/customers', [CustomerController::class, 'store'])->name('sales.customers.store');
+    Route::get('/sales/customers/{customer}', [CustomerController::class, 'show'])->name('sales.customers.show');
+
+    Route::get('/sales/orders', [SaleController::class, 'index'])->name('sales.orders.index');
+    Route::post('/sales/orders', [SaleController::class, 'store'])->name('sales.orders.store');
+    Route::get('/sales/orders/{sale}', [SaleController::class, 'show'])->name('sales.orders.show');
+    Route::post('/sales/payments', [CustomerPaymentController::class, 'store'])->name('sales.payments.store');
+    Route::post('/sales/refunds', [RefundController::class, 'store'])->name('sales.refunds.store');
+    Route::post('/sales/cancellations', [SalesCancellationController::class, 'store'])->name('sales.cancellations.store');
+
+    Route::get('/sales/returns', [SaleReturnController::class, 'index'])->name('sales.returns.index');
+    Route::post('/sales/returns', [SaleReturnController::class, 'store'])->name('sales.returns.store');
+    Route::get('/sales/returns/{sale_return}', [SaleReturnController::class, 'show'])->name('sales.returns.show');
+
     Route::get('/settings/approvals', [ApprovalSettingController::class, 'index'])->name('settings.approvals.index');
+    Route::put('/settings/approvals/discount', [ApprovalSettingController::class, 'updateDiscount'])->name('settings.approvals.discount');
     Route::post('/settings/approvals', [ApprovalSettingController::class, 'store'])->name('settings.approvals.store');
     Route::put('/settings/approvals/{threshold}', [ApprovalSettingController::class, 'update'])->name('settings.approvals.update');
     Route::delete('/settings/approvals/{threshold}', [ApprovalSettingController::class, 'destroy'])->name('settings.approvals.destroy');

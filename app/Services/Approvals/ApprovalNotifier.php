@@ -10,6 +10,9 @@ use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
+use App\Models\Refund;
+use App\Models\Sale;
+use App\Models\SalesCancellation;
 use App\Models\StockAdjustment;
 use App\Models\SupplierPayment;
 use App\Models\User;
@@ -91,6 +94,8 @@ final class ApprovalNotifier
             $document instanceof PartnerTransfer => ($document->loadMissing('fromPartner', 'toPartner')->fromPartner?->name ?? '—').' to '.($document->toPartner?->name ?? '—'),
             $document instanceof Purchase, $document instanceof PurchaseReturn, $document instanceof SupplierPayment => $document->loadMissing('supplier')->supplier?->name ?? '—',
             $document instanceof StockAdjustment => $document->loadMissing('product')->product?->name ?? '—',
+            $document instanceof Sale, $document instanceof Refund => $document->loadMissing('customer')->customer?->name ?? '—',
+            $document instanceof SalesCancellation => $document->loadMissing('sale.customer')->sale?->customer?->name ?? '—',
             default => '—',
         };
     }

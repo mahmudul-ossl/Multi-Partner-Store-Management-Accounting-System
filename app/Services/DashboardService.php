@@ -7,9 +7,11 @@ namespace App\Services;
 use App\Enums\PartnerStatus;
 use App\Enums\PermissionName;
 use App\Models\FinancialAccount;
+use App\Models\JournalEntryLine;
 use App\Models\Partner;
 use App\Models\User;
 use App\Services\Approvals\ApprovalDirectory;
+use App\Support\ChartAccountCode;
 use App\Support\Format;
 use App\Support\Money;
 
@@ -61,9 +63,10 @@ final class DashboardService
             'cash_and_bank' => $canSeeCash ? $this->cashAndBank() : null,
             'show_pending_approvals' => $canSeeApprovals,
             'pending_approvals' => $canSeeApprovals ? $this->approvals->countActionable($actor) : null,
+            'show_sales' => $actor->can(PermissionName::SaleView->value),
+            'sales' => $actor->can(PermissionName::SaleView->value) ? $this->salesFromLedger() : null,
             'placeholders' => [
                 ['key' => 'inventory_value', 'label' => 'Inventory value', 'note' => 'Coming in a later phase'],
-                ['key' => 'sales', 'label' => 'Sales', 'note' => 'Coming in a later phase'],
             ],
         ];
     }
@@ -74,6 +77,20 @@ final class DashboardService
 
         foreach (FinancialAccount::query()->where('is_active', true)->pluck('current_balance') as $balance) {
             $total = Money::of($total)->add((string) $balance)->amount();
+        }
+
+        return Money::of($total)->formatted();
+    }
+
+    private function salesFromLedger(): string
+    {
+        $total = '0.00';
+        $lines = JournalEntryLine::query()
+            ->whereHas('account', fn ($query) => $query->where('code', ChartAccountCode::ProductSales))
+            ->get(['debit', 'credit']);
+
+        foreach ($lines as $line) {
+            $total = Money::of($total)->add((string) $line->credit)->sub((string) $line->debit)->amount();
         }
 
         return Money::of($total)->formatted();

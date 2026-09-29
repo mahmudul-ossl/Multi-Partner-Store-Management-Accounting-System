@@ -14,7 +14,7 @@ defineProps({
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-                <p class="mt-1 text-sm text-slate-500">Partner counts, cash held in financial accounts, and approvals waiting on you. Inventory and sales arrive later.</p>
+                <p class="mt-1 text-sm text-slate-500">Partner counts, cash held in financial accounts, sales from the ledger, and approvals waiting on you.</p>
             </div>
         </div>
 
@@ -27,6 +27,7 @@ defineProps({
             <SummaryCard v-if="summary.show_user_counts" label="Active users" :value="summary.users_active" />
             <SummaryCard v-if="summary.show_pending_approvals" label="Approvals waiting on you" :value="summary.pending_approvals" hint="Open the approval queue" />
             <SummaryCard v-if="summary.show_cash" label="Cash & bank" :value="summary.cash_and_bank" hint="Cached balance from the ledger" />
+            <SummaryCard v-if="summary.show_sales" label="Sales" :value="summary.sales" hint="Product sales from the ledger, net of returns" />
         </section>
 
         <h2 class="mt-10 text-sm font-semibold uppercase tracking-wide text-slate-500">Coming in a later phase</h2>

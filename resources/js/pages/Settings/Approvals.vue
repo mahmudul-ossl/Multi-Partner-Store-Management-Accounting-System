@@ -7,7 +7,10 @@ import Modal from '../../Components/Modal.vue';
 const props = defineProps({
     thresholds: { type: Array, required: true },
     types: { type: Array, required: true },
+    discountThreshold: { type: String, required: true },
 });
+
+const discount = useForm({ large_discount_threshold: props.discountThreshold });
 
 const open = ref(false);
 const editingId = ref(null);
@@ -53,10 +56,18 @@ function remove(row) {
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Approval thresholds</h1>
-                <p class="mt-1 text-sm text-slate-500">Example: ৳0–10,000 needs 1 approver, ৳10,001–100,000 needs 2, and above ৳100,000 needs 3.</p>
+                <p class="mt-1 text-sm text-slate-500">Example: ৳0–10,000 needs 1 approver, ৳10,001–100,000 needs 2, and above ৳100,000 needs 3. A sale discount above the amount below waits for large-discount approval.</p>
             </div>
             <button class="btn btn-primary" type="button" @click="create">Add band</button>
         </div>
+        <form class="card mt-6 flex flex-col gap-3 p-4 sm:flex-row sm:items-end" @submit.prevent="discount.put('/settings/approvals/discount')">
+            <div>
+                <label class="label" for="discount-threshold">Large discount threshold</label>
+                <input id="discount-threshold" v-model="discount.large_discount_threshold" class="field" required>
+            </div>
+            <button class="btn btn-secondary" type="submit">Save threshold</button>
+        </form>
+
         <section class="card mt-6 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left text-sm">
