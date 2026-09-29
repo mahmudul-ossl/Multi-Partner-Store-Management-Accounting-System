@@ -106,6 +106,7 @@ function submit() {
                             <td class="px-4 py-3 font-medium">{{ partner.partner_code }}</td>
                             <td class="px-4 py-3">
                                 <Link :href="`/partners/${partner.id}`" class="font-semibold text-teal-800 hover:underline">{{ partner.name }}</Link>
+                                <Link v-if="can('partner_statement.view')" :href="`/partners/${partner.id}/profile`" class="ml-2 text-xs font-semibold text-teal-700 hover:underline">Profile</Link>
                             </td>
                             <td class="px-4 py-3 text-slate-600">{{ partner.phone || '—' }}</td>
                             <td class="px-4 py-3 text-slate-600">{{ partner.joining_date_formatted }}</td>

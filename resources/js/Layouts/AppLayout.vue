@@ -20,6 +20,7 @@ const navigation = computed(() => [
     { label: 'Withdrawals', href: '/withdrawals', show: can('partner.withdrawal.view') },
     { label: 'Transfers', href: '/transfers', show: can('partner.transfer.view') },
     { label: 'My partnership', href: page.props.auth.user?.partner_id ? `/partners/${page.props.auth.user.partner_id}/dashboard` : '/partners', show: Boolean(page.props.auth.user?.partner_id) },
+    { label: 'My profile', href: page.props.auth.user?.partner_id ? `/partners/${page.props.auth.user.partner_id}/profile` : '/partners', show: Boolean(page.props.auth.user?.partner_id) },
     { label: 'Products', href: '/inventory/products', show: can('product.view') },
     { label: 'Catalog', href: '/inventory/catalog', show: can('product.view') },
     { label: 'Suppliers', href: '/inventory/suppliers', show: can('supplier.view') },
@@ -64,7 +65,9 @@ const crumbs = computed(() => {
 
     if (path.startsWith('/partners')) {
         items.push({ label: 'Partners', href: '/partners' });
-        if (path !== '/partners') {
+        if (path.includes('/profile')) {
+            items.push({ label: 'Profile' });
+        } else if (path !== '/partners') {
             items.push({ label: 'Details' });
         }
     } else if (path.startsWith('/users')) {
