@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Policies\RolePolicy;
+use App\Support\TrustedProxies;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        TrustedProxies::apply();
+
         Password::defaults(function (): Password {
             return Password::min(10)
                 ->mixedCase()
