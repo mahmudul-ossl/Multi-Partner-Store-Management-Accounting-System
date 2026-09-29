@@ -90,6 +90,7 @@ function submit() {
                     <div>
                         <label class="label">Date</label>
                         <input v-model="form.transaction_date" class="field" type="date" required>
+                        <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                     </div>
                     <div class="md:col-span-2">
                         <label class="label">Method</label>

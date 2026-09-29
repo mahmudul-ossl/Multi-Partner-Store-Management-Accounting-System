@@ -6,6 +6,7 @@ namespace App\Http\Requests\Sales;
 
 use App\Enums\PaymentMethod;
 use App\Models\Sale;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -51,7 +52,7 @@ class SaleRequest extends FormRequest
         return [
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
-            'transaction_date' => ['required', 'date'],
+            'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'discount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
             'delivery' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
             'paid_amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],

@@ -6,6 +6,7 @@ namespace App\Http\Requests\Accounting;
 
 use App\Enums\AllocationMethod;
 use App\Models\ProfitAllocation;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -42,7 +43,7 @@ class AllocationRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
-            'transaction_date' => ['required', 'date'],
+            'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'method' => ['required', Rule::enum(AllocationMethod::class)],
             'note' => ['nullable', 'string', 'max:2000'],
             'lines' => ['required_if:method,custom', 'array'],

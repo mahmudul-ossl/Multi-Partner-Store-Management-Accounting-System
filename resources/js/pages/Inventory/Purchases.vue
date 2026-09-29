@@ -101,6 +101,7 @@ function submit() {
                     <div>
                         <label class="label">Date</label>
                         <input v-model="form.transaction_date" class="field" type="date" required>
+                        <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                     </div>
                     <div>
                         <label class="label">Paid now</label>
@@ -129,7 +130,7 @@ function submit() {
                     <input v-model="line.unit_cost" class="field" placeholder="Unit cost">
                 </div>
                 <button class="btn btn-secondary" type="button" @click="addLine">Add line</button>
-                <p v-if="Object.keys(form.errors).length" class="text-sm text-rose-700">{{ Object.values(form.errors)[0] }}</p>
+                <p v-if="Object.entries(form.errors).some(([key]) => key !== 'transaction_date')" class="text-sm text-rose-700">{{ Object.entries(form.errors).find(([key]) => key !== 'transaction_date')?.[1] }}</p>
                 <div class="flex justify-end">
                     <button class="btn btn-primary" :disabled="form.processing" type="submit">Submit for approval</button>
                 </div>

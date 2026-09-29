@@ -108,6 +108,7 @@ const payment = useForm({
             <div>
                 <label class="label">Date</label>
                 <input v-model="payment.payment_date" class="field" type="date" required>
+                <p v-if="payment.errors.payment_date" class="error">{{ payment.errors.payment_date }}</p>
             </div>
             <div class="flex items-end">
                 <button class="btn btn-primary" type="submit">Submit for approval</button>

@@ -119,6 +119,7 @@ function submit() {
                 <div>
                     <label class="label" for="wd-date">Date</label>
                     <input id="wd-date" v-model="form.transaction_date" class="field" type="date" required>
+                    <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                 </div>
                 <div>
                     <label class="label" for="wd-reason">Reason</label>

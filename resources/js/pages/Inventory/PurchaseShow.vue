@@ -85,6 +85,7 @@ function submit() {
             <div>
                 <label class="label">Date</label>
                 <input v-model="form.transaction_date" class="field max-w-xs" type="date" required>
+                <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
             </div>
             <div v-for="line in form.items" :key="line.purchase_item_id" class="grid items-end gap-2 md:grid-cols-3">
                 <p class="text-sm">{{ line.product }} <span class="text-slate-500">(bought {{ line.available }})</span></p>
@@ -94,7 +95,7 @@ function submit() {
                 <label class="label">Note</label>
                 <input v-model="form.note" class="field" placeholder="Optional">
             </div>
-            <p v-if="Object.keys(form.errors).length" class="text-sm text-rose-700">{{ Object.values(form.errors)[0] }}</p>
+            <p v-if="Object.entries(form.errors).some(([key]) => key !== 'transaction_date')" class="text-sm text-rose-700">{{ Object.entries(form.errors).find(([key]) => key !== 'transaction_date')?.[1] }}</p>
             <div class="flex justify-end">
                 <button class="btn btn-primary" :disabled="form.processing" type="submit">Submit return</button>
             </div>
