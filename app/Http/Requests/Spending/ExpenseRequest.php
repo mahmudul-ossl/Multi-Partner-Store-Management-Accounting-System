@@ -45,8 +45,28 @@ class ExpenseRequest extends FormRequest
             'transaction_date' => ['required', 'date'],
             'description' => ['required', 'string', 'max:2000'],
             'partner_id' => ['nullable', 'integer', 'exists:partners,id'],
-            'payment_method' => ['nullable', Rule::enum(PaymentMethod::class)],
-            'financial_account_id' => ['nullable', 'integer', 'exists:financial_accounts,id'],
+            'payment_method' => [
+                Rule::requiredIf(fn (): bool => blank($this->input('partner_id'))),
+                'nullable',
+                Rule::enum(PaymentMethod::class),
+            ],
+            'financial_account_id' => [
+                Rule::requiredIf(fn (): bool => blank($this->input('partner_id'))),
+                'nullable',
+                'integer',
+                'exists:financial_accounts,id',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'payment_method.required' => 'A business expense needs a method and a financial account.',
+            'financial_account_id.required' => 'A business expense needs a method and a financial account.',
         ];
     }
 }

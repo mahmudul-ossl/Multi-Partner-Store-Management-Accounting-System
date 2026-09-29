@@ -47,7 +47,7 @@ final class SimplePdf
         }
 
         $objects = [];
-        $objects[1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+        $objects[1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
         $next = 2;
         $resources = '/Font << /F1 1 0 R';
 

@@ -20,7 +20,9 @@ use App\Services\Spending\PromotionContributionService;
 use App\Services\Spending\PromotionService;
 use App\Support\ChartAccountCode;
 use App\Support\Money;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
 
 class SpendingTest extends FinanceTestCase
 {
@@ -174,6 +176,81 @@ class SpendingTest extends FinanceTestCase
         $this->assertSame('250.00', $this->side($rent->journalEntry->lines, ChartAccountCode::Rent, 'debit'));
         $this->assertSame('250.00', $this->side($rent->journalEntry->lines, ChartAccountCode::Cash, 'credit'));
         $this->assertSame(Money::of($beforeCash)->sub('250.00')->amount(), (string) $cash->current_balance);
+    }
+
+    public function test_a_business_expense_without_a_method_or_account_is_a_field_error(): void
+    {
+        $admin = $this->userWithRole(RoleName::Admin);
+        $partner = Partner::factory()->create();
+        $logged = [];
+        Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$logged): void {
+            $logged[] = $event->level.': '.$event->message;
+        });
+
+        $payload = [
+            'category' => 'rent',
+            'amount' => '100.00',
+            'transaction_date' => '2026-05-01',
+            'description' => 'Rent with no drawer chosen.',
+            'partner_id' => '',
+            'payment_method' => '',
+            'financial_account_id' => '',
+        ];
+
+        $this->actingAs($admin)
+            ->from(route('expenses.index'))
+            ->post(route('expenses.store'), $payload)
+            ->assertRedirect(route('expenses.index'))
+            ->assertSessionHasErrors([
+                'payment_method' => 'A business expense needs a method and a financial account.',
+                'financial_account_id' => 'A business expense needs a method and a financial account.',
+            ]);
+
+        $payload['payment_method'] = 'cash';
+        $this->actingAs($admin)
+            ->from(route('expenses.index'))
+            ->post(route('expenses.store'), $payload)
+            ->assertRedirect(route('expenses.index'))
+            ->assertSessionHasErrors([
+                'financial_account_id' => 'A business expense needs a method and a financial account.',
+            ])
+            ->assertSessionDoesntHaveErrors('payment_method');
+
+        $this->assertSame(0, Expense::query()->count());
+        foreach ($logged as $line) {
+            $this->assertStringStartsNotWith('error:', $line, $line);
+        }
+
+        $this->actingAs($admin)->post(route('expenses.store'), [
+            'category' => 'rent',
+            'amount' => '80.00',
+            'transaction_date' => '2026-05-02',
+            'description' => 'Rent from cash.',
+            'partner_id' => '',
+            'payment_method' => 'cash',
+            'financial_account_id' => $this->cashAccount()->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('expenses', [
+            'description' => 'Rent from cash.',
+            'partner_id' => null,
+        ]);
+
+        $this->actingAs($admin)->post(route('expenses.store'), [
+            'category' => 'electricity',
+            'amount' => '40.00',
+            'transaction_date' => '2026-05-03',
+            'description' => 'Power paid by the partner.',
+            'partner_id' => $partner->id,
+            'payment_method' => '',
+            'financial_account_id' => '',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('expenses', [
+            'description' => 'Power paid by the partner.',
+            'partner_id' => $partner->id,
+            'financial_account_id' => null,
+        ]);
     }
 
     public function test_rejected_expense_posts_nothing(): void

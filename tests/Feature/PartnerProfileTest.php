@@ -276,6 +276,8 @@ class PartnerProfileTest extends FinanceTestCase
 
         $pdf = $this->pdfText($this->actingAs($admin)->get(route('partners.profile.pdf', $rahim))->getContent());
         $this->assertStringContainsString('Investment INV-00001 · Rahim Uddin', $pdf);
+        $this->assertStringContainsString('Profit allocation PAL-00001 · Rahim Uddin', $pdf);
+        $this->assertStringNotContainsString('•', $pdf);
         $this->assertStringContainsString('Promotion contribution', $pdf);
         $this->assertStringContainsString('৳2,000.00', $pdf);
         $this->assertStringContainsString('Net capital', $pdf);
@@ -299,6 +301,60 @@ class PartnerProfileTest extends FinanceTestCase
     private function pdfText(string $pdf): string
     {
         $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertStringContainsString('/BaseFont /Helvetica /Encoding /WinAnsiEncoding', $pdf);
+
+        $viewer = $this->viewerText($pdf);
+
+        if ($viewer !== null) {
+            $this->assertStringNotContainsString('•', $viewer);
+
+            return $viewer;
+        }
+
+        return $this->contentStreamText($pdf);
+    }
+
+    /**
+     * Text a viewer extracts. Byte 0xB7 is a bullet under StandardEncoding and a middle dot under WinAnsiEncoding.
+     */
+    private function viewerText(string $pdf): ?string
+    {
+        $checked = shell_exec('command -v pdftotext');
+        $binary = is_string($checked) ? trim($checked) : '';
+
+        if ($binary === '' || ! is_executable($binary)) {
+            return null;
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'profile-pdf-');
+        $this->assertNotFalse($path);
+        file_put_contents($path, $pdf);
+
+        $pipes = [];
+        $process = proc_open(
+            [$binary, '-enc', 'UTF-8', '-layout', $path, '-'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        $this->assertIsResource($process);
+        $output = stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $code = proc_close($process);
+        @unlink($path);
+
+        $this->assertSame(0, $code, 'pdftotext failed: '.$error);
+        $this->assertIsString($output);
+
+        $flat = preg_replace('/\s+/u', ' ', $output) ?? $output;
+
+        return trim($flat);
+    }
+
+    private function contentStreamText(string $pdf): string
+    {
+        $winAnsi = str_contains($pdf, '/BaseFont /Helvetica /Encoding /WinAnsiEncoding');
         $text = '';
 
         preg_match_all('/\(((?:\\\\.|[^\\\\)])*)\)\s*Tj|<([0-9A-Fa-f]+)>\s*Tj/s', $pdf, $matches, PREG_SET_ORDER);
@@ -306,7 +362,9 @@ class PartnerProfileTest extends FinanceTestCase
         foreach ($matches as $match) {
             if (str_starts_with($match[0], '(')) {
                 $literal = str_replace(['\\(', '\\)', '\\\\'], ['(', ')', '\\'], $match[1]);
-                $text .= str_replace("\xB7", '·', $literal);
+                $text .= $winAnsi
+                    ? mb_convert_encoding($literal, 'UTF-8', 'Windows-1252')
+                    : str_replace("\xB7", '•', $literal);
 
                 continue;
             }
