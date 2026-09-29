@@ -8,6 +8,7 @@ use App\Enums\PermissionName;
 use App\Http\Resources\PartnerResource;
 use App\Models\Partner;
 use App\Services\Finance\PartnerProfileService;
+use App\Support\Format;
 use App\Support\SimplePdf;
 use App\Support\Spreadsheet;
 use Illuminate\Http\Request;
@@ -91,9 +92,12 @@ class PartnerProfileController extends Controller
         $summary = $profiles->summary($partner);
         $lines = [
             'Partner profile '.$partner->name.' ('.$partner->partner_code.')',
+            'Date range: '.$this->rangeLabel($range),
             'Gross investment '.$summary['gross_investment']['formatted'].' ('.$summary['gross_investment']['amount'].')',
             'Withdrawals '.$summary['withdrawals']['formatted'].' ('.$summary['withdrawals']['amount'].')',
             'Allocated profit '.$summary['allocated_profit']['formatted'].' ('.$summary['allocated_profit']['amount'].')',
+            'Promotion contribution '.$summary['promotion_contribution']['formatted'].' ('.$summary['promotion_contribution']['amount'].')',
+            'Partner expenses '.$summary['partner_expenses']['formatted'].' ('.$summary['partner_expenses']['amount'].')',
             'Net capital '.$summary['net_capital']['formatted'].' ('.$summary['net_capital']['amount'].')',
             'Investment share '.$summary['investment_share_display'],
             $summary['investment_basis_label'],
@@ -102,21 +106,23 @@ class PartnerProfileController extends Controller
         ];
 
         foreach ($history['lines'] as $line) {
-            $lines[] = implode(' | ', [
-                (string) $line['date'],
-                (string) $line['reference'],
-                (string) $line['type'],
-                (string) $line['description'],
-                (string) $line['debit'],
-                (string) $line['credit'],
-                (string) $line['running_balance'],
-            ]);
+            $lines[] = sprintf(
+                '%s  %s  %s  Debit %s  Credit %s  Balance %s',
+                $line['date'],
+                $line['reference'],
+                $line['type'],
+                $line['debit'],
+                $line['credit'],
+                $line['running_balance'],
+            );
+            $lines[] = $line['description'].'  '.$line['account'];
         }
 
-        $lines[] = 'Opening '.$history['opening']['amount'];
-        $lines[] = 'Debits '.$history['debit_total']['amount'];
-        $lines[] = 'Credits '.$history['credit_total']['amount'];
-        $lines[] = 'Closing '.$history['closing']['amount'];
+        $lines[] = 'Opening '.$history['opening']['formatted'].' ('.$history['opening']['amount'].')';
+        $lines[] = 'Debits '.$history['debit_total']['formatted'].' ('.$history['debit_total']['amount'].')';
+        $lines[] = 'Credits '.$history['credit_total']['formatted'].' ('.$history['credit_total']['amount'].')';
+        $lines[] = 'Closing '.$history['closing']['formatted'].' ('.$history['closing']['amount'].')';
+        $lines[] = 'Net capital '.$summary['net_capital']['formatted'].' ('.$summary['net_capital']['amount'].')';
 
         return SimplePdf::download($this->filename($partner, 'pdf'), $lines);
     }
@@ -140,6 +146,21 @@ class PartnerProfileController extends Controller
         }
 
         return ['from' => $from, 'to' => $to];
+    }
+
+    /**
+     * @param  array{from: ?string, to: ?string}  $range
+     */
+    private function rangeLabel(array $range): string
+    {
+        if ($range['from'] === null && $range['to'] === null) {
+            return 'all dates';
+        }
+
+        $from = $range['from'] === null ? 'the beginning' : (string) Format::date($range['from']);
+        $to = $range['to'] === null ? 'the latest entry' : (string) Format::date($range['to']);
+
+        return $from.' to '.$to;
     }
 
     private function date(string $value): ?string

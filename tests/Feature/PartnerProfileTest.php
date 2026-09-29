@@ -107,10 +107,26 @@ class PartnerProfileTest extends FinanceTestCase
 
         $pdf = $this->actingAs($admin)->get(route('partners.profile.pdf', $partner));
         $pdf->assertOk();
-        $body = $pdf->getContent();
-        $this->assertStringStartsWith('%PDF', $body);
-        $this->assertStringContainsString('450.00', $body);
-        $this->assertStringContainsString('Investment method', $body);
+        $text = $this->pdfText($pdf->getContent());
+        $this->assertStringContainsString('450.00', $text);
+        $this->assertStringContainsString('500.00', $text);
+        $this->assertStringContainsString('Promotion contribution', $text);
+        $this->assertStringContainsString('Net capital', $text);
+        $this->assertStringContainsString('Date range: all dates', $text);
+        $this->assertStringContainsString(PartnerProfileService::INVESTMENT_BASIS, $text);
+        $this->assertStringContainsString(PartnerProfileService::CAPITAL_BASIS, $text);
+        $this->assertStringContainsString(' · ', $text);
+        $this->assertStringNotContainsString('?', $text);
+
+        $filtered = $this->actingAs($admin)->get(route('partners.profile.pdf', [
+            'partner' => $partner,
+            'from' => '2026-03-01',
+            'to' => '2026-03-31',
+        ]));
+        $filteredText = $this->pdfText($filtered->getContent());
+        $this->assertStringContainsString('Date range: 01-Mar-2026 to 31-Mar-2026', $filteredText);
+        $this->assertStringContainsString('Balance 500.00', $filteredText);
+        $this->assertStringNotContainsString('Balance 450.00', $filteredText);
     }
 
     public function test_investment_and_capital_shares_sum_to_100_percent(): void
@@ -257,6 +273,51 @@ class PartnerProfileTest extends FinanceTestCase
                 ->where('summary.net_capital.amount', '7180.00')
                 ->where('summary.allocated_profit.amount', '180.00')
                 ->where('totals.closing.amount', '7180.00'));
+
+        $pdf = $this->pdfText($this->actingAs($admin)->get(route('partners.profile.pdf', $rahim))->getContent());
+        $this->assertStringContainsString('Investment INV-00001 · Rahim Uddin', $pdf);
+        $this->assertStringContainsString('Promotion contribution', $pdf);
+        $this->assertStringContainsString('৳2,000.00', $pdf);
+        $this->assertStringContainsString('Net capital', $pdf);
+        $this->assertStringContainsString('৳7,180.00', $pdf);
+        $this->assertStringContainsString('Balance 7180.00', $pdf);
+        $this->assertStringContainsString(PartnerProfileService::INVESTMENT_BASIS, $pdf);
+        $this->assertStringContainsString(PartnerProfileService::CAPITAL_BASIS, $pdf);
+        $this->assertStringNotContainsString('?', $pdf);
+
+        $april = $this->pdfText($this->actingAs($admin)->get(route('partners.profile.pdf', [
+            'partner' => $rahim,
+            'from' => '2026-04-01',
+            'to' => '2026-04-30',
+        ]))->getContent());
+        $this->assertStringContainsString('Date range: 01-Apr-2026 to 30-Apr-2026', $april);
+        $this->assertStringContainsString('Promotion contribution', $april);
+        $this->assertStringContainsString('Net capital', $april);
+        $this->assertStringNotContainsString('INV-00001', $april);
+    }
+
+    private function pdfText(string $pdf): string
+    {
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $text = '';
+
+        preg_match_all('/\(((?:\\\\.|[^\\\\)])*)\)\s*Tj|<([0-9A-Fa-f]+)>\s*Tj/s', $pdf, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $match) {
+            if (str_starts_with($match[0], '(')) {
+                $literal = str_replace(['\\(', '\\)', '\\\\'], ['(', ')', '\\'], $match[1]);
+                $text .= str_replace("\xB7", '·', $literal);
+
+                continue;
+            }
+
+            $hex = $match[2];
+            for ($index = 0; $index < strlen($hex); $index += 4) {
+                $text .= mb_chr((int) hexdec(substr($hex, $index, 4)));
+            }
+        }
+
+        return $text;
     }
 
     private function invest(User $actor, User $approver, Partner $partner, string $amount, string $date): void
