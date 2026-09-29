@@ -44,8 +44,9 @@ return [
     | rules), not in this file. The ledger (chart_of_accounts, journal_entries,
     | journal_entry_lines) will be the source of truth for partner statements,
     | profit and loss, the balance sheet, and the trial balance. Inventory
-    | on-hand will be derived from stock_movements. Financial documents are
-    | reversed or voided; they are never hard-deleted.
+    | on-hand is derived from stock_movements (weighted average). Financial
+    | documents and stock history are reversed or voided; they are never
+    | hard-deleted.
     |
     */
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\ApprovalSettingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialAccountController;
@@ -15,7 +16,14 @@ use App\Http\Controllers\ManualJournalController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerFinanceController;
 use App\Http\Controllers\PartnerUserController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WithdrawalController;
@@ -97,6 +105,38 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/accounting/reports/general-ledger', [LedgerReportController::class, 'generalLedger'])->name('accounting.reports.ledger');
     Route::get('/accounting/reports/cash', [LedgerReportController::class, 'cash'])->name('accounting.reports.cash');
     Route::get('/accounting/reports/bank', [LedgerReportController::class, 'bank'])->name('accounting.reports.bank');
+
+    Route::get('/inventory/catalog', [CatalogController::class, 'index'])->name('inventory.catalog.index');
+    Route::post('/inventory/categories', [CatalogController::class, 'storeCategory'])->name('inventory.categories.store');
+    Route::post('/inventory/brands', [CatalogController::class, 'storeBrand'])->name('inventory.brands.store');
+    Route::post('/inventory/units', [CatalogController::class, 'storeUnit'])->name('inventory.units.store');
+    Route::post('/inventory/warehouses', [CatalogController::class, 'storeWarehouse'])->name('inventory.warehouses.store');
+
+    Route::get('/inventory/products', [ProductController::class, 'index'])->name('inventory.products.index');
+    Route::post('/inventory/products', [ProductController::class, 'store'])->name('inventory.products.store');
+    Route::get('/inventory/products/{product}', [ProductController::class, 'show'])->name('inventory.products.show');
+    Route::put('/inventory/products/{product}', [ProductController::class, 'update'])->name('inventory.products.update');
+
+    Route::get('/inventory/suppliers', [SupplierController::class, 'index'])->name('inventory.suppliers.index');
+    Route::post('/inventory/suppliers', [SupplierController::class, 'store'])->name('inventory.suppliers.store');
+    Route::get('/inventory/suppliers/{supplier}', [SupplierController::class, 'show'])->name('inventory.suppliers.show');
+    Route::post('/inventory/suppliers/{supplier}/contacts', [SupplierController::class, 'storeContact'])->name('inventory.suppliers.contacts.store');
+    Route::post('/inventory/supplier-payments', [SupplierPaymentController::class, 'store'])->name('inventory.supplier-payments.store');
+
+    Route::get('/inventory/purchases', [PurchaseController::class, 'index'])->name('inventory.purchases.index');
+    Route::post('/inventory/purchases', [PurchaseController::class, 'store'])->name('inventory.purchases.store');
+    Route::get('/inventory/purchases/{purchase}', [PurchaseController::class, 'show'])->name('inventory.purchases.show');
+
+    Route::get('/inventory/returns', [PurchaseReturnController::class, 'index'])->name('inventory.returns.index');
+    Route::post('/inventory/returns', [PurchaseReturnController::class, 'store'])->name('inventory.returns.store');
+    Route::get('/inventory/returns/{purchase_return}', [PurchaseReturnController::class, 'show'])->name('inventory.returns.show');
+
+    Route::get('/inventory/stock', [StockController::class, 'index'])->name('inventory.stock.index');
+    Route::get('/inventory/stock/movements', [StockController::class, 'movements'])->name('inventory.stock.movements');
+    Route::get('/inventory/stock/low', [StockController::class, 'low'])->name('inventory.stock.low');
+
+    Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('inventory.adjustments.index');
+    Route::post('/inventory/adjustments', [StockAdjustmentController::class, 'store'])->name('inventory.adjustments.store');
 
     Route::get('/settings/approvals', [ApprovalSettingController::class, 'index'])->name('settings.approvals.index');
     Route::post('/settings/approvals', [ApprovalSettingController::class, 'store'])->name('settings.approvals.store');

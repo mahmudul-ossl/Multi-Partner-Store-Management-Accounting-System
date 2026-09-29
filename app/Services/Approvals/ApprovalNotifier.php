@@ -8,6 +8,10 @@ use App\Models\ApprovalRequest;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
+use App\Models\Purchase;
+use App\Models\PurchaseReturn;
+use App\Models\StockAdjustment;
+use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Notifications\ApprovalActivity;
 use App\Support\Format;
@@ -66,7 +70,7 @@ final class ApprovalNotifier
     private function sentence(ApprovalRequest $request, string $decision): string
     {
         $document = $request->reference;
-        $date = $document->transaction_date ?? $document->entry_date ?? $request->requested_at;
+        $date = $document->transaction_date ?? $document->payment_date ?? $document->entry_date ?? $request->requested_at;
 
         return sprintf(
             'New %s %s — Amount %s, Partner %s, Date %s',
@@ -85,6 +89,8 @@ final class ApprovalNotifier
         return match (true) {
             $document instanceof PartnerInvestment, $document instanceof PartnerWithdrawal => $document->loadMissing('partner')->partner?->name ?? '—',
             $document instanceof PartnerTransfer => ($document->loadMissing('fromPartner', 'toPartner')->fromPartner?->name ?? '—').' to '.($document->toPartner?->name ?? '—'),
+            $document instanceof Purchase, $document instanceof PurchaseReturn, $document instanceof SupplierPayment => $document->loadMissing('supplier')->supplier?->name ?? '—',
+            $document instanceof StockAdjustment => $document->loadMissing('product')->product?->name ?? '—',
             default => '—',
         };
     }

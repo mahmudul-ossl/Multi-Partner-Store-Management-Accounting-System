@@ -328,7 +328,7 @@ npm run dev
 php artisan queue:work
 ```
 
-Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, the accounting screens (chart of accounts, cash and bank, journals, transfers, general ledger, cash and bank reports), Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Inventory, sales, and the remaining financial reports are labelled as coming later.
+Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, the accounting screens, the inventory screens (products, catalog, suppliers, purchases, returns, stock, movements, low stock, and adjustments), Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Sales and the remaining financial reports are labelled as coming later.
 
 ## Testing
 
@@ -386,7 +386,7 @@ Approvals, partner investments, withdrawals, transfers, partner dashboard, and p
 
 Seeded examples, posted through the real services: Rahim’s ৳8,000 investment (approved), Fatema’s ৳25,000 investment (approved), Karim’s ৳4,000 withdrawal (approved), Nusrat’s ৳20,000 withdrawal (pending), Shahidul’s ৳15,000 withdrawal (rejected, no journal), a ৳3,000 transfer from Rahim to Fatema (approved), and Karim’s ৳150,000 investment (partially approved, no journal).
 
-Later phases should keep using `DocumentStatus`, `ApprovalRequestType`, and `JournalEntryService`. Promotion contributions, partner expenses, and profit share should use the source class names in `App\Support\LedgerSource` so the partner dashboard can split them. Inventory on-hand should come from a `stock_movements` ledger using `StockMovementType`.
+Later phases should keep using `DocumentStatus`, `ApprovalRequestType`, and `JournalEntryService`. Promotion contributions, partner expenses, and profit share should use the source class names in `App\Support\LedgerSource` so the partner dashboard can split them. Inventory on-hand comes from `stock_movements` through `InventoryService` only.
 
 ## Phase 3
 
@@ -401,6 +401,17 @@ The ledger is the source of truth for cash, bank, and wallet balances.
 
 Seeded examples, posted through the real services: Petty Cash (chart 1001, under Cash) opened at ৳5,000; April bank charges ৳1,500 approved and posted against Cash; a ৳2,000 rent accrual left pending with no journal; and a ৳2,000 transfer from DBBL Bank to bKash approved and posted.
 
+## Phase 4
+
+Costing is weighted average. `InventoryService` is the only writer of `stock_movements`. On-hand quantity is the sum of those signed quantities. `products.average_cost` is updated in the same transaction. Phase 5 COGS must call `InventoryService` when stock leaves and use the `unit_cost` stored on that movement (the average at issue time).
+
+- Categories, brands, units, warehouses, suppliers (contacts and a due list), and products (unique SKU and barcode, prices, minimum stock, reorder level, status, description, image).
+- Opening stock, adjustments, and damage are stock documents. They change quantity and post a journal only after the final `stock.adjust.approve` approval. The requester cannot approve their own document.
+- Purchases, purchase returns, and supplier payments use `purchase.approve`. Stock and the journal post only when that approval is final. A purchase debits 1100 Inventory and credits the cash, bank, or wallet account for the amount paid and/or 2000 Accounts Payable for the amount due. A return debits payable and credits inventory at the original unit cost, and reduces the purchase due. A supplier payment debits payable and credits the financial account.
+- Low stock is on-hand at or below `reorder_level`. The stock report shows inventory value. The movement report lists the ledger.
+
+Seeded through the real services: 5 suppliers, 5 categories, 3 brands, 20 leather goods with opening stock, one approved partial purchase of bifold wallets (then a return and the remaining payment), one pending tote purchase, and the Leather Key Fob left at or below its reorder level. Cash stays non-negative after those payments.
+
 ## Later phases
 
-Do not hard-delete financial history. Purchases, sales, promotions, expenses, financial statements, and the remaining reports follow.
+Do not hard-delete financial history or stock movements. Sales, promotions, expenses, financial statements, and the remaining reports follow. The dashboard inventory and sales cards stay marked for a later phase.
