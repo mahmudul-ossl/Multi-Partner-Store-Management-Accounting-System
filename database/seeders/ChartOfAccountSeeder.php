@@ -25,6 +25,7 @@ class ChartOfAccountSeeder extends Seeder
             [ChartAccountCode::PartnerCapital, 'Partner Capital', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::RetainedEarnings, 'Retained Earnings', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::PartnerWithdrawals, 'Partner Withdrawals', AccountType::Equity, NormalBalance::Debit],
+            [ChartAccountCode::OpeningBalanceEquity, 'Opening Balance Equity', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::ProductSales, 'Product Sales', AccountType::Income, NormalBalance::Credit],
             [ChartAccountCode::OtherRevenue, 'Other Revenue', AccountType::Income, NormalBalance::Credit],
             [ChartAccountCode::Cogs, 'COGS', AccountType::Expense, NormalBalance::Debit],
@@ -44,6 +45,7 @@ class ChartOfAccountSeeder extends Seeder
                     'type' => $type,
                     'normal_balance' => $normal,
                     'is_active' => true,
+                    'is_system' => true,
                 ],
             );
         }

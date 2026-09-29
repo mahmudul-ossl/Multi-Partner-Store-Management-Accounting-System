@@ -328,7 +328,7 @@ npm run dev
 php artisan queue:work
 ```
 
-Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Inventory, sales, accounting management, and reports are labelled as coming later.
+Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, the accounting screens (chart of accounts, cash and bank, journals, transfers, general ledger, cash and bank reports), Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Inventory, sales, and the remaining financial reports are labelled as coming later.
 
 ## Testing
 
@@ -351,6 +351,7 @@ npm run build
 - Audit rows redact passwords and cannot be updated or deleted.
 - `App\Services\Approvals\SelfApprovalGuard` throws `You cannot approve your own transaction.` Approval, duplicate-approval, and permission checks run in `ApprovalService` with row locks. The UI cannot bypass them.
 - Journals are posted only on final approval, must balance, and are reversed instead of deleted.
+- `TRUSTED_PROXIES` controls `TrustProxies`. Leave it empty on a direct connection. Set `TRUSTED_PROXIES=*` only when the origin is reachable solely through a trusted proxy such as Cloudflare; otherwise list that proxy's addresses. Forwarded `https` is ignored until a proxy is trusted, which is what keeps asset URLs on HTTPS behind a tunnel.
 
 ## Default seeded logins
 
@@ -381,12 +382,25 @@ After migrate, seed, and `npm run build`:
 
 ## Phase 2
 
-Approvals, partner investments, withdrawals, transfers, partner dashboard, and partner statements are in place. Statements and capital totals are calculated from `journal_entry_lines` on accounts 3000 and 3200. Default thresholds are ৳0–10,000 = 1 approval, ৳10,001–100,000 = 2, and above ৳100,000 = 3, editable at Approval settings. The chart of accounts and the five financial accounts (Cash, DBBL Bank, BRAC Bank, bKash, Nagad) are seeded. Chart-of-accounts management, cash/bank screens, and the general ledger UI are left for Phase 3.
+Approvals, partner investments, withdrawals, transfers, partner dashboard, and partner statements are in place. Statements and capital totals are calculated from `journal_entry_lines` on accounts 3000 and 3200. Default thresholds are ৳0–10,000 = 1 approval, ৳10,001–100,000 = 2, and above ৳100,000 = 3, editable at Approval settings. The chart of accounts and the five financial accounts (Cash, DBBL Bank, BRAC Bank, bKash, Nagad) are seeded.
 
 Seeded examples, posted through the real services: Rahim’s ৳8,000 investment (approved), Fatema’s ৳25,000 investment (approved), Karim’s ৳4,000 withdrawal (approved), Nusrat’s ৳20,000 withdrawal (pending), Shahidul’s ৳15,000 withdrawal (rejected, no journal), a ৳3,000 transfer from Rahim to Fatema (approved), and Karim’s ৳150,000 investment (partially approved, no journal).
 
 Later phases should keep using `DocumentStatus`, `ApprovalRequestType`, and `JournalEntryService`. Promotion contributions, partner expenses, and profit share should use the source class names in `App\Support\LedgerSource` so the partner dashboard can split them. Inventory on-hand should come from a `stock_movements` ledger using `StockMovementType`.
 
+## Phase 3
+
+The ledger is the source of truth for cash, bank, and wallet balances.
+
+- Chart of accounts is hierarchical and typed. Admins (`settings.manage`) add accounts. Seeded accounts are system accounts: code, type, normal balance, parent, and active flag stay fixed. Name and description can change. An unused non-system account can be removed; one with lines, children, or a financial account cannot.
+- Financial accounts (cash, bank, mobile wallet) store an opening balance by posting it immediately: debit the asset account, credit 3300 Opening Balance Equity. The cached `current_balance` moves with each ledger line. Reconcile copies the ledger total back onto the cache.
+- Manual journals and transfers between financial accounts (for example DBBL Bank to bKash) wait for approval. `accounting.manage` is the approve permission. A requester cannot approve their own document. The journal posts only on the final approval.
+- Journal list and detail can reverse a manual journal, an account transfer, or an opening-balance entry. Partner investments, withdrawals, and transfers are reversed from those documents. A reversal swaps the sides, so the net on the account is zero.
+- General ledger shows opening balance (movement before the from-date, signed by normal balance), each line, and a running balance. Cash report lists cash accounts. Bank report lists banks, then mobile wallets.
+- `accounting.view` (Accountant, Admin, Viewer) opens the screens. `accounting.manage` (Accountant and Admin) creates journals, financial accounts, transfers, reconciliations, and reversals. Partners do not have either permission.
+
+Seeded examples, posted through the real services: Petty Cash (chart 1001, under Cash) opened at ৳5,000; April bank charges ৳1,500 approved and posted against Cash; a ৳2,000 rent accrual left pending with no journal; and a ৳2,000 transfer from DBBL Bank to bKash approved and posted.
+
 ## Later phases
 
-Do not hard-delete financial history. Phase 3 adds chart-of-accounts management, cash and bank screens, and the general ledger. Purchases, sales, promotions, expenses, financial statements, and the remaining reports follow.
+Do not hard-delete financial history. Purchases, sales, promotions, expenses, financial statements, and the remaining reports follow.

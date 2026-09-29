@@ -29,6 +29,8 @@ final class ChartAccountCode
 
     public const PartnerWithdrawals = '3200';
 
+    public const OpeningBalanceEquity = '3300';
+
     public const ProductSales = '4000';
 
     public const OtherRevenue = '4100';

@@ -44,6 +44,7 @@ final class RolePermissionMap
                 PermissionName::PurchaseApprove,
                 PermissionName::ReportView,
                 PermissionName::AccountingView,
+                PermissionName::AccountingManage,
                 PermissionName::BalanceSheetView,
                 PermissionName::ProfitLossView,
                 PermissionName::PartnerStatementView,
