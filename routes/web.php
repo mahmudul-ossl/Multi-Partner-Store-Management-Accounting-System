@@ -18,6 +18,7 @@ use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\LedgerReportController;
 use App\Http\Controllers\ManualJournalController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerFinanceController;
 use App\Http\Controllers\PartnerUserController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\RefundController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SaleReturnController;
@@ -57,6 +59,14 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/{report}/excel', [ReportController::class, 'excel'])->name('reports.excel');
+    Route::get('/reports/{report}/pdf', [ReportController::class, 'pdf'])->name('reports.pdf');
+    Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
+
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
 
     Route::resource('users', UserController::class)->except(['show', 'create', 'edit']);
     Route::resource('partners', PartnerController::class)->except(['create', 'edit']);

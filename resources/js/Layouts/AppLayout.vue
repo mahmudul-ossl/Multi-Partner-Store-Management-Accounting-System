@@ -14,6 +14,7 @@ const toasts = ref([]);
 
 const navigation = computed(() => [
     { label: 'Dashboard', href: '/dashboard', show: true },
+    { label: 'Reports', href: '/reports', show: can('report.view') },
     { label: 'Approvals', href: '/approvals', show: can('approval.view') || can('partner.investment.approve') || can('partner.withdrawal.approve') || can('partner.transfer.approve') },
     { label: 'Investments', href: '/investments', show: can('partner.investment.view') },
     { label: 'Withdrawals', href: '/withdrawals', show: can('partner.withdrawal.view') },
@@ -53,9 +54,9 @@ const navigation = computed(() => [
     { label: 'Audit log', href: '/audit-logs', show: can('audit_log.view') },
 ].filter((item) => item.show));
 
-const later = [
-    'Excel & PDF reports',
-];
+const later = [];
+const bellOpen = ref(false);
+const notifications = computed(() => page.props.notifications ?? { unread: 0, items: [] });
 
 const crumbs = computed(() => {
     const path = page.url.split('?')[0];
@@ -136,6 +137,8 @@ const crumbs = computed(() => {
         items.push({ label: 'Expenses', href: '/expenses' });
     } else if (path.startsWith('/settings')) {
         items.push({ label: 'Approval settings' });
+    } else if (path.startsWith('/reports')) {
+        items.push({ label: 'Reports', href: '/reports' });
     }
 
     return items;
@@ -162,6 +165,14 @@ function pushToast(message, tone) {
 
 function logout() {
     router.post('/logout');
+}
+
+function markNotification(id) {
+    router.post(`/notifications/${id}/read`, {}, { preserveScroll: true, onSuccess: () => { bellOpen.value = false; } });
+}
+
+function markAllNotifications() {
+    router.post('/notifications/read-all', {}, { preserveScroll: true, onSuccess: () => { bellOpen.value = false; } });
 }
 
 function isActive(href) {
@@ -200,10 +211,12 @@ function isActive(href) {
                     {{ item.label }}
                 </Link>
 
-                <p class="px-3 pt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Coming later</p>
-                <p v-for="item in later" :key="item" class="px-3 py-1.5 text-sm text-slate-500">
-                    {{ item }}
-                </p>
+                <template v-if="later.length">
+                    <p class="px-3 pt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Coming later</p>
+                    <p v-for="item in later" :key="item" class="px-3 py-1.5 text-sm text-slate-500">
+                        {{ item }}
+                    </p>
+                </template>
             </nav>
         </aside>
 
@@ -220,6 +233,29 @@ function isActive(href) {
                     </nav>
                 </div>
                 <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <button class="btn btn-secondary px-2.5" type="button" aria-label="Notifications" @click="bellOpen = !bellOpen">
+                            Bell
+                            <span v-if="notifications.unread" class="ml-1 rounded-full bg-teal-600 px-1.5 text-xs text-white">{{ notifications.unread }}</span>
+                        </button>
+                        <div v-if="bellOpen" class="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+                            <div class="mb-2 flex items-center justify-between">
+                                <p class="text-sm font-semibold text-slate-900">Notifications</p>
+                                <button v-if="notifications.unread" class="text-xs font-semibold text-teal-700" type="button" @click="markAllNotifications">Mark all read</button>
+                            </div>
+                            <div v-if="notifications.items.length === 0" class="py-4 text-sm text-slate-500">No unread notifications.</div>
+                            <button
+                                v-for="item in notifications.items"
+                                :key="item.id"
+                                class="block w-full rounded-lg px-2 py-2 text-left hover:bg-slate-50"
+                                type="button"
+                                @click="markNotification(item.id)"
+                            >
+                                <p class="text-sm font-medium text-slate-900">{{ item.title }}</p>
+                                <p class="text-xs text-slate-500">{{ item.message }}</p>
+                            </button>
+                        </div>
+                    </div>
                     <div class="hidden text-right sm:block">
                         <p class="text-sm font-semibold text-slate-900">{{ user?.name }}</p>
                         <p class="text-xs text-slate-500">{{ user?.roles?.[0] }}</p>

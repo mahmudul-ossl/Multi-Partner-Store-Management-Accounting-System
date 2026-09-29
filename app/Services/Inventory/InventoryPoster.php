@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\AuditAction;
 use App\Enums\StockAdjustmentKind;
 use App\Enums\StockMovementType;
 use App\Exceptions\ApprovalStateException;
@@ -13,7 +14,9 @@ use App\Models\PurchaseReturn;
 use App\Models\StockAdjustment;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\Ledger\JournalEntryService;
+use App\Services\OperationalNotifier;
 use App\Support\ChartAccountCode;
 use App\Support\Costing;
 use App\Support\Money;
@@ -27,6 +30,8 @@ final class InventoryPoster
     public function __construct(
         private readonly InventoryService $inventory,
         private readonly JournalEntryService $journal,
+        private readonly AuditLogService $audit,
+        private readonly OperationalNotifier $alerts,
     ) {}
 
     public function post(Model $document, User $actor): void
@@ -41,6 +46,24 @@ final class InventoryPoster
 
         $document->journal_entry_id = $entry->id;
         $document->save();
+
+        if ($document instanceof Purchase && Money::of((string) $document->due_amount)->compare('0.00') === 1) {
+            $this->alerts->supplierDue($document);
+        }
+
+        if ($document instanceof SupplierPayment) {
+            $this->audit->record(AuditAction::Payment, $document, null, [
+                'reference' => $document->reference,
+                'amount' => (string) $document->amount,
+            ], $actor);
+        }
+
+        if ($document instanceof StockAdjustment) {
+            $this->audit->record(AuditAction::StockAdjusted, $document, null, [
+                'reference' => $document->reference,
+                'kind' => $document->kind->value,
+            ], $actor);
+        }
     }
 
     private function purchase(Purchase $document, User $actor): JournalEntry

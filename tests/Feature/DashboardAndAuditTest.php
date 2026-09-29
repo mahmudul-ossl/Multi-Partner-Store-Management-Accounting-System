@@ -11,7 +11,7 @@ use RuntimeException;
 
 class DashboardAndAuditTest extends FeatureTestCase
 {
-    public function test_dashboard_shows_real_counts_and_labelled_placeholders(): void
+    public function test_dashboard_shows_real_counts_and_inventory_value(): void
     {
         $admin = $this->userWithRole(RoleName::Admin);
         Partner::factory()->count(3)->create();
@@ -26,9 +26,9 @@ class DashboardAndAuditTest extends FeatureTestCase
                 ->where('summary.partners_inactive', 1)
                 ->where('summary.users_total', 1)
                 ->where('summary.pending_approvals', 0)
-                ->where('summary.placeholders.0.key', 'inventory_value')
-                ->where('summary.placeholders.0.note', 'Coming in a later phase')
-                ->has('summary.placeholders', 1)
+                ->missing('summary.placeholders')
+                ->where('summary.show_inventory', true)
+                ->where('summary.inventory_value', '৳0.00')
                 ->where('summary.show_sales', true)
                 ->where('summary.sales', '৳0.00'));
     }
