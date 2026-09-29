@@ -254,7 +254,7 @@ SEED_DEMO_PASSWORD="Partner#2026"
 
 ## Docker Setup
 
-`docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, and a `queue` worker. phpMyAdmin is optional and stays off unless you opt in:
+`docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, a `queue` worker, and a `scheduler`. phpMyAdmin is optional and stays off unless you opt in. Production uses `docker-compose.prod.yml`: a multi-stage image, `www-data`, OPcache, and no published MySQL port. See [docs/deployment.md](docs/deployment.md).
 
 ```bash
 cp .env.example .env
@@ -328,7 +328,7 @@ npm run dev
 php artisan queue:work
 ```
 
-Sign in at `/login`. The sidebar lists Dashboard, Approvals, partner finance, the accounting screens, the inventory screens, customers, sales, and sales returns, plus Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. The remaining financial reports are labelled as coming later.
+Sign in at `/login`. The sidebar lists the screens your permissions allow, including Reports.
 
 ## Testing
 
@@ -342,7 +342,7 @@ npm run build
 ## Security
 
 - Session authentication on the `web` middleware group, which includes Laravel’s `PreventRequestForgery` CSRF middleware.
-- Login failures are rate limited (5 attempts per email and IP, then a lockout).
+- Login failures are rate limited (5 attempts per email and IP, then a lockout), including `POST /api/v1/login`. The API allows 60 requests per minute. Approve and reject allow 30 per minute per user.
 - Passwords use Laravel’s hashed cast and must be at least 10 characters with upper, lower, numbers, and symbols.
 - Inactive users cannot sign in. A deactivated session is logged out.
 - Policies authorize every user and partner action on the server. The Vue app only hides controls.
@@ -458,4 +458,12 @@ Reports, the dashboard, operational notifications, the extended audit log, and t
 
 ## Phase 9
 
-Phase 9 is a review pass, not a new ledger. Check rate limiting (the API throttle is already on), authorization on every route, mass assignment, and that the audit log still covers approve, reject, cancel, reverse, payment, and stock adjustment. Look at indexes, eager loading, caching of dashboard summaries, and queues. Harden the production Docker setup and write the deployment notes. The critical ৳50,000 withdrawal self-approval test and the earlier phase tests already cover the spec’s minimum list; extend that suite where a path is still untested. Do not hard-delete financial history or stock movements.
+Company-wide profit and loss, the balance sheet, and the trial balance are each gated by their own permission (`profit_loss.view`, `balance_sheet.view`, `trial_balance.view`). The partner role does not receive those permissions. A partner still opens their own dashboard, statement, and profit share. An administrator can grant any of the three permissions and that screen opens. The report catalogue uses the same permissions.
+
+Login is limited to 5 attempts per email and IP, on the web form and on `POST /api/v1/login`. The API group is limited to 60 requests per minute. Approve and reject are limited to 30 requests per minute per user. Every application route other than login, the home redirect, and the health check requires `auth` or `auth:sanctum`, and the controller or its form request checks a policy or permission. Dashboard, logout, and marking your own notifications read are the authenticated self-service exceptions. Models keep `$fillable` and are not unguarded.
+
+Reporting indexes cover sale, purchase, and expense status plus date, journal lines by account, stock movement dates, and approval request time. `Model::preventLazyLoading` is on outside production. Dashboard summaries are cached for 60 seconds and dropped when a journal posts, stock moves, or an approval is submitted, approved, rejected, or cancelled. Approval and account-created notifications implement `ShouldQueue`. Low-stock and payment-due alerts are a separate queued job that writes one row per user and subject from the balance at delivery time.
+
+The production Compose file, OPcache, non-root PHP, health checks, queue worker, and scheduler are described in [docs/deployment.md](docs/deployment.md). Do not hard-delete financial history or stock movements.
+
+Payment-due alerts are rewritten when a later payment or return changes the balance, and they are marked read when the due is no longer positive. A sale or purchase that is fully paid at posting does not create a due alert. With the database queue, several jobs for the same document still leave one alert at the current amount. Approving, rejecting, or cancelling a request marks its approval notification read, so the bell can keep payment and stock alerts in their own section. `/notifications` lists every alert with pagination. PDF exports embed Noto Sans Bengali so the ৳ sign is a real glyph. The sales report defaults to completed rows. Its totals are labelled “Completed sales (ledger)” and “Pending”. `GET /api/v1` lists the version and the endpoint paths.

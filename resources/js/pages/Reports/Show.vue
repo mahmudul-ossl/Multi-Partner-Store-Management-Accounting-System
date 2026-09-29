@@ -22,6 +22,7 @@ const form = reactive({
     direction: props.filters.direction || 'asc',
     partner: props.filters.partner || '',
     account: props.filters.account || '',
+    status: props.filters.status || 'completed',
 });
 
 const exportQuery = computed(() => {
@@ -85,6 +86,15 @@ function apply() {
                 <select v-model="form.partner" class="field">
                     <option value="">Select a partner</option>
                     <option v-for="partner in partners" :key="partner.id" :value="String(partner.id)">{{ partner.partner_code }} · {{ partner.name }}</option>
+                </select>
+            </div>
+            <div v-if="report.key === 'sales'">
+                <label class="label">Status</label>
+                <select v-model="form.status" class="field">
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="all">All statuses</option>
                 </select>
             </div>
             <div v-if="report.key === 'general-ledger'">

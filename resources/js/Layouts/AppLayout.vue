@@ -47,7 +47,7 @@ const navigation = computed(() => [
     { label: 'Bank report', href: '/accounting/reports/bank', show: can('accounting.view') },
     { label: 'Profit & loss', href: '/accounting/reports/profit-loss', show: can('profit_loss.view') },
     { label: 'Balance sheet', href: '/accounting/reports/balance-sheet', show: can('balance_sheet.view') },
-    { label: 'Trial balance', href: '/accounting/reports/trial-balance', show: can('report.view') },
+    { label: 'Trial balance', href: '/accounting/reports/trial-balance', show: can('trial_balance.view') },
     { label: 'Profit allocations', href: '/accounting/allocations', show: can('accounting.view') },
     { label: 'Period close', href: '/accounting/periods', show: can('accounting.view') },
     { label: 'Approval settings', href: '/settings/approvals', show: can('settings.manage') },
@@ -56,7 +56,7 @@ const navigation = computed(() => [
 
 const later = [];
 const bellOpen = ref(false);
-const notifications = computed(() => page.props.notifications ?? { unread: 0, items: [] });
+const notifications = computed(() => page.props.notifications ?? { unread: 0, operational: [], approvals: [] });
 
 const crumbs = computed(() => {
     const path = page.url.split('?')[0];
@@ -71,6 +71,8 @@ const crumbs = computed(() => {
         items.push({ label: 'Users' });
     } else if (path.startsWith('/roles')) {
         items.push({ label: 'Roles' });
+    } else if (path.startsWith('/notifications')) {
+        items.push({ label: 'Notifications' });
     } else if (path.startsWith('/audit-logs')) {
         items.push({ label: 'Audit log' });
     } else if (path.startsWith('/approvals')) {
@@ -238,14 +240,15 @@ function isActive(href) {
                             Bell
                             <span v-if="notifications.unread" class="ml-1 rounded-full bg-teal-600 px-1.5 text-xs text-white">{{ notifications.unread }}</span>
                         </button>
-                        <div v-if="bellOpen" class="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+                        <div v-if="bellOpen" class="absolute right-0 z-30 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
                             <div class="mb-2 flex items-center justify-between">
                                 <p class="text-sm font-semibold text-slate-900">Notifications</p>
                                 <button v-if="notifications.unread" class="text-xs font-semibold text-teal-700" type="button" @click="markAllNotifications">Mark all read</button>
                             </div>
-                            <div v-if="notifications.items.length === 0" class="py-4 text-sm text-slate-500">No unread notifications.</div>
+                            <p class="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Payment and stock</p>
+                            <p v-if="!notifications.operational?.length" class="px-2 py-2 text-sm text-slate-500">No operational alerts.</p>
                             <button
-                                v-for="item in notifications.items"
+                                v-for="item in notifications.operational"
                                 :key="item.id"
                                 class="block w-full rounded-lg px-2 py-2 text-left hover:bg-slate-50"
                                 type="button"
@@ -254,6 +257,19 @@ function isActive(href) {
                                 <p class="text-sm font-medium text-slate-900">{{ item.title }}</p>
                                 <p class="text-xs text-slate-500">{{ item.message }}</p>
                             </button>
+                            <p class="mt-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Approvals</p>
+                            <p v-if="!notifications.approvals?.length" class="px-2 py-2 text-sm text-slate-500">No approval alerts.</p>
+                            <button
+                                v-for="item in notifications.approvals"
+                                :key="item.id"
+                                class="block w-full rounded-lg px-2 py-2 text-left hover:bg-slate-50"
+                                type="button"
+                                @click="markNotification(item.id)"
+                            >
+                                <p class="text-sm font-medium text-slate-900">{{ item.title }}</p>
+                                <p class="text-xs text-slate-500">{{ item.message }}</p>
+                            </button>
+                            <Link href="/notifications" class="mt-2 block px-2 text-sm font-semibold text-teal-700" @click="bellOpen = false">View all</Link>
                         </div>
                     </div>
                     <div class="hidden text-right sm:block">

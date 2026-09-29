@@ -90,7 +90,14 @@ final class ReportTable
      */
     private function sales(array $filters): array
     {
-        $rows = Sale::query()->with('customer')->orderByDesc('transaction_date')->get()->map(fn (Sale $sale): array => $this->row([
+        $status = $this->saleStatus($filters);
+        $query = Sale::query()->with('customer')->orderByDesc('transaction_date');
+
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        $rows = $query->get()->map(fn (Sale $sale): array => $this->row([
             'date' => Format::date($sale->transaction_date),
             'reference' => $sale->reference,
             'customer' => $sale->customer?->name ?? '—',
@@ -102,10 +109,30 @@ final class ReportTable
             'due' => (string) $sale->due_amount,
         ]))->all();
 
+        $pending = '0.00';
+        $pendingSales = Sale::query()->where('status', DocumentStatus::Pending->value);
+        $from = $this->from($filters);
+        $to = $this->to($filters);
+
+        if ($from !== null) {
+            $pendingSales->whereDate('transaction_date', '>=', $from);
+        }
+
+        if ($to !== null) {
+            $pendingSales->whereDate('transaction_date', '<=', $to);
+        }
+
+        foreach ($pendingSales->pluck('total') as $amount) {
+            $pending = Money::of($pending)->add((string) $amount)->amount();
+        }
+
         return [
             'columns' => $this->columns(['date' => 'Date', 'reference' => 'Reference', 'customer' => 'Customer', 'total' => 'Total', 'due' => 'Due', 'status' => 'Status']),
             'rows' => $rows,
-            'totals' => [$this->total('Ledger sales', $this->ledger->net(ChartAccountCode::ProductSales, $this->from($filters), $this->to($filters), true))],
+            'totals' => [
+                $this->total('Completed sales (ledger)', $this->ledger->net(ChartAccountCode::ProductSales, $from, $to, true)),
+                $this->total('Pending', $pending),
+            ],
         ];
     }
 
@@ -796,5 +823,16 @@ final class ReportTable
         $to = (string) ($filters['to'] ?? '');
 
         return $to !== '' ? $to : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function saleStatus(array $filters): string
+    {
+        $status = (string) ($filters['status'] ?? '');
+        $allowed = ['completed', 'pending', 'cancelled', 'all'];
+
+        return in_array($status, $allowed, true) ? $status : DocumentStatus::Completed->value;
     }
 }

@@ -19,9 +19,11 @@ use App\Services\Inventory\StockQuery;
 use App\Services\Reports\LedgerSlice;
 use App\Services\Reports\StockValuation;
 use App\Support\ChartAccountCode;
+use App\Support\DashboardCache;
 use App\Support\Format;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 
 final class DashboardService
 {
@@ -39,6 +41,20 @@ final class DashboardService
      * @return array<string, mixed>
      */
     public function summary(User $actor): array
+    {
+        $version = (int) Cache::get(DashboardCache::VERSION, 0);
+
+        return Cache::remember(
+            'dashboard.summary.'.$actor->id.'.'.$version,
+            60,
+            fn (): array => $this->uncachedSummary($actor),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function uncachedSummary(User $actor): array
     {
         $visible = $this->partners->visibleTo($actor);
         $canSeeUsers = $actor->can(PermissionName::UserManage->value);

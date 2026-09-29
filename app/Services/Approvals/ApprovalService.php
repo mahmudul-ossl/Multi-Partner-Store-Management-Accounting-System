@@ -32,6 +32,7 @@ use App\Services\Ledger\AccountingPoster;
 use App\Services\Ledger\PartnerFinancePoster;
 use App\Services\Sales\SalesPoster;
 use App\Services\Spending\SpendingPoster;
+use App\Support\DashboardCache;
 use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,7 @@ final class ApprovalService
             ]);
 
             $this->notifier->requested($request);
+            DashboardCache::bump();
 
             return $request;
         });
@@ -110,6 +112,7 @@ final class ApprovalService
                     'required_approvals' => $request->required_approvals,
                     'comment' => $comment,
                 ], $actor);
+                DashboardCache::bump();
 
                 return $request;
             }
@@ -130,6 +133,8 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'approved');
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request->fresh(['actions.user', 'reference']);
         });
@@ -165,6 +170,8 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'rejected');
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request;
         });
@@ -191,6 +198,8 @@ final class ApprovalService
             $this->audit->record(AuditAction::Cancelled, $document, null, [
                 'status' => DocumentStatus::Cancelled->value,
             ], $actor);
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request;
         });

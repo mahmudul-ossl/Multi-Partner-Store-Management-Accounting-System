@@ -65,6 +65,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports/{report}/pdf', [ReportController::class, 'pdf'])->name('reports.pdf');
     Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
 
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
 
@@ -79,8 +80,8 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/approvals', [ApprovalController::class, 'index'])->name('approvals.index');
     Route::get('/approvals/{approval}', [ApprovalController::class, 'show'])->name('approvals.show');
-    Route::post('/approvals/{approval}/approve', [ApprovalController::class, 'approve'])->name('approvals.approve');
-    Route::post('/approvals/{approval}/reject', [ApprovalController::class, 'reject'])->name('approvals.reject');
+    Route::post('/approvals/{approval}/approve', [ApprovalController::class, 'approve'])->middleware('throttle:approvals')->name('approvals.approve');
+    Route::post('/approvals/{approval}/reject', [ApprovalController::class, 'reject'])->middleware('throttle:approvals')->name('approvals.reject');
 
     Route::resource('investments', InvestmentController::class)->except(['create', 'edit', 'destroy']);
     Route::post('/investments/{investment}/cancel', [InvestmentController::class, 'cancel'])->name('investments.cancel');

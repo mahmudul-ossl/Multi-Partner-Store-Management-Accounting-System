@@ -20,9 +20,13 @@ use App\Services\Approvals\ApprovalService;
 use App\Services\Inventory\CatalogService;
 use App\Services\Inventory\StockAdjustmentService;
 use App\Services\Purchasing\PurchaseService;
+use App\Services\Purchasing\SupplierPaymentService;
 use App\Services\Reports\MonthlyReport;
 use App\Services\Reports\StockValuation;
+use App\Services\Sales\CustomerPaymentService;
+use App\Services\Sales\SaleReturnService;
 use App\Services\Sales\SaleService;
+use App\Support\EmbeddedFont;
 use App\Support\Money;
 use ZipArchive;
 
@@ -45,8 +49,10 @@ class ReportsTest extends FinanceTestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Reports/Show')
                 ->where('rows.total', 1)
-                ->where('totals.0.label', 'Ledger sales')
-                ->where('totals.0.amount', '3180.00'));
+                ->where('filters.status', 'completed')
+                ->where('totals.0.label', 'Completed sales (ledger)')
+                ->where('totals.0.amount', '3180.00')
+                ->where('totals.1.label', 'Pending'));
 
         $excel = $this->actingAs($admin)->get(route('reports.excel', [
             'report' => 'sales',
@@ -71,8 +77,61 @@ class ReportsTest extends FinanceTestCase
             'to' => '2026-12-31',
         ]));
         $pdf->assertOk();
-        $this->assertStringStartsWith('%PDF', $pdf->getContent());
-        $this->assertStringContainsString('3180.00', $pdf->getContent());
+        $body = $pdf->getContent();
+        $glyph = EmbeddedFont::noto()->glyph(0x09F3);
+        $this->assertStringStartsWith('%PDF', $body);
+        $this->assertStringContainsString('3180.00', $body);
+        $this->assertStringContainsString('/BaseFont /NotoSansBengali-Regular', $body);
+        $this->assertStringContainsString('/FontFile2', $body);
+        $this->assertNotNull($glyph);
+        $this->assertNotSame(0x09F3, $glyph);
+        $this->assertStringContainsString('<09F3> <09F3>', $body);
+        $this->assertStringContainsString('<09F3> Tj', $body);
+        $this->assertStringNotContainsString('?3,180.00', $body);
+        $this->assertStringNotContainsString('?1,450.00', $body);
+
+        $pending = Sale::query()->where('status', DocumentStatus::Pending)->firstOrFail();
+        $pendingTotal = '0.00';
+        foreach (Sale::query()->where('status', DocumentStatus::Pending)->pluck('total') as $amount) {
+            $pendingTotal = Money::of($pendingTotal)->add((string) $amount)->amount();
+        }
+
+        $this->actingAs($admin)
+            ->get(route('reports.show', [
+                'report' => 'sales',
+                'from' => '2026-01-01',
+                'to' => '2026-12-31',
+                'search' => $pending->reference,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.total', 0)
+                ->where('totals.1.amount', $pendingTotal));
+
+        $this->actingAs($admin)
+            ->get(route('reports.show', [
+                'report' => 'sales',
+                'from' => '2026-01-01',
+                'to' => '2026-12-31',
+                'status' => 'pending',
+                'search' => $pending->reference,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.total', 1)
+                ->where('rows.data.0.reference', $pending->reference)
+                ->where('rows.data.0.status', 'Pending'));
+
+        $this->actingAs($admin)
+            ->get(route('reports.show', [
+                'report' => 'sales',
+                'from' => '2026-01-01',
+                'to' => '2026-12-31',
+                'status' => 'all',
+                'search' => $pending->reference,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('rows.total', 1));
     }
 
     public function test_monthly_report_figures_match_the_ledger(): void
@@ -140,14 +199,17 @@ class ReportsTest extends FinanceTestCase
                     $keys = collect($cards)->pluck('key');
 
                     return $keys->contains('investment')
-                        && $keys->contains('net_profit')
+                        && $keys->contains('pending_approvals')
+                        && ! $keys->contains('net_profit')
+                        && ! $keys->contains('gross_profit')
                         && ! $keys->contains('cash')
                         && ! $keys->contains('sales');
                 })
                 ->where('summary.charts', function ($charts): bool {
                     $keys = collect($charts)->pluck('key');
 
-                    return $keys->contains('profit')
+                    return $keys->contains('promotion')
+                        && ! $keys->contains('profit')
                         && ! $keys->contains('investment')
                         && ! $keys->contains('sales');
                 }));
@@ -238,6 +300,135 @@ class ReportsTest extends FinanceTestCase
         $this->assertFalse($inventory->fresh()->notifications()->where('data->kind', 'customer_due')->exists());
     }
 
+    public function test_due_notifications_refresh_when_payment_or_return_changes_the_balance(): void
+    {
+        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
+        $sales = $this->userWithRole(RoleName::SalesManager);
+        $cash = $this->cashAccount();
+
+        $purchase = app(PurchaseService::class)->create($inventory, [
+            'supplier_id' => $supplier->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_date' => '2026-05-10',
+            'paid_amount' => '0.00',
+            'payment_method' => null,
+            'financial_account_id' => null,
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => '6',
+                'unit_cost' => '100.0000',
+            ]],
+        ]);
+        app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
+        $purchase->refresh();
+
+        $this->assertSame(
+            $supplier->name.' is owed '.Money::of('600.00')->formatted().' on '.$purchase->reference.'.',
+            $this->dueMessage($accountant, 'supplier_due'),
+        );
+
+        $part = app(SupplierPaymentService::class)->create($inventory, [
+            'supplier_id' => $supplier->id,
+            'purchase_id' => $purchase->id,
+            'financial_account_id' => $cash->id,
+            'payment_method' => 'cash',
+            'amount' => '200.00',
+            'payment_date' => '2026-05-20',
+            'note' => 'Part payment.',
+        ]);
+        app(ApprovalService::class)->approve($part->approvalRequest, $accountant, 'Part paid.');
+
+        $this->assertSame(
+            $supplier->name.' is owed '.Money::of('400.00')->formatted().' on '.$purchase->reference.'.',
+            $this->dueMessage($accountant, 'supplier_due'),
+        );
+
+        $rest = app(SupplierPaymentService::class)->create($inventory, [
+            'supplier_id' => $supplier->id,
+            'purchase_id' => $purchase->id,
+            'financial_account_id' => $cash->id,
+            'payment_method' => 'cash',
+            'amount' => '400.00',
+            'payment_date' => '2026-05-21',
+            'note' => 'Balance.',
+        ]);
+        app(ApprovalService::class)->approve($rest->approvalRequest, $accountant, 'Paid.');
+
+        $this->assertFalse($accountant->fresh()->unreadNotifications()->where('data->kind', 'supplier_due')->exists());
+
+        $customer = Customer::query()->create([
+            'name' => 'Due Customer',
+            'phone' => '01711111111',
+            'status' => CustomerStatus::Active,
+        ]);
+        $sale = app(SaleService::class)->create($sales, [
+            'customer_id' => $customer->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_date' => '2026-06-02',
+            'discount' => '0.00',
+            'delivery' => '0.00',
+            'paid_amount' => '0.00',
+            'payment_method' => null,
+            'financial_account_id' => null,
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => '1',
+                'unit_price' => '180.00',
+            ]],
+        ]);
+
+        $this->assertSame(
+            'Due Customer still owes '.Money::of('180.00')->formatted().' on '.$sale->reference.'.',
+            $this->dueMessage($sales, 'customer_due'),
+        );
+
+        app(CustomerPaymentService::class)->create($sales, [
+            'sale_id' => $sale->id,
+            'financial_account_id' => $cash->id,
+            'payment_method' => 'cash',
+            'amount' => '50.00',
+            'payment_date' => '2026-06-03',
+            'note' => 'Instalment.',
+        ]);
+
+        $this->assertSame('130.00', (string) $sale->fresh()->due_amount);
+        $this->assertSame(
+            'Due Customer still owes '.Money::of('130.00')->formatted().' on '.$sale->reference.'.',
+            $this->dueMessage($sales, 'customer_due'),
+        );
+
+        app(SaleReturnService::class)->create($sales, [
+            'sale_id' => $sale->id,
+            'transaction_date' => '2026-06-04',
+            'note' => 'Returned the wallet.',
+            'items' => [[
+                'sale_item_id' => $sale->items->first()->id,
+                'quantity' => '1',
+            ]],
+        ]);
+
+        $this->assertFalse($sales->fresh()->unreadNotifications()->where('data->kind', 'customer_due')->exists());
+
+        $before = $sales->fresh()->notifications()->where('data->kind', 'customer_due')->count();
+        app(SaleService::class)->create($sales, [
+            'customer_id' => $customer->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_date' => '2026-06-05',
+            'discount' => '0.00',
+            'delivery' => '0.00',
+            'paid_amount' => '180.00',
+            'payment_method' => 'cash',
+            'financial_account_id' => $cash->id,
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => '1',
+                'unit_price' => '180.00',
+            ]],
+        ]);
+
+        $this->assertSame($before, $sales->fresh()->notifications()->where('data->kind', 'customer_due')->count());
+    }
+
     public function test_approve_and_reject_write_audit_entries(): void
     {
         [$partnerUser, $partner] = $this->linkedPartner();
@@ -307,6 +498,14 @@ class ReportsTest extends FinanceTestCase
         $withdrawal = PartnerWithdrawal::query()->firstOrFail();
         $this->assertSame(DocumentStatus::Pending, $withdrawal->status);
         $this->assertNull($withdrawal->journal_entry_id);
+    }
+
+    private function dueMessage(User $user, string $kind): string
+    {
+        $notification = $user->fresh()->unreadNotifications()->where('data->kind', $kind)->first();
+        $this->assertNotNull($notification);
+
+        return (string) $notification->data['message'];
     }
 
     /**

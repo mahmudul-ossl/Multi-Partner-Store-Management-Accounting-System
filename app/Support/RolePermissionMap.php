@@ -47,6 +47,7 @@ final class RolePermissionMap
                 PermissionName::AccountingManage,
                 PermissionName::BalanceSheetView,
                 PermissionName::ProfitLossView,
+                PermissionName::TrialBalanceView,
                 PermissionName::PartnerStatementView,
                 PermissionName::ApprovalView,
                 PermissionName::ApprovalApprove,
@@ -88,7 +89,6 @@ final class RolePermissionMap
                 PermissionName::PromotionView,
                 PermissionName::PromotionCreate,
                 PermissionName::ReportView,
-                PermissionName::ProfitLossView,
                 PermissionName::PartnerStatementView,
                 PermissionName::ApprovalView,
             ],
@@ -107,6 +107,7 @@ final class RolePermissionMap
                 PermissionName::AccountingView,
                 PermissionName::BalanceSheetView,
                 PermissionName::ProfitLossView,
+                PermissionName::TrialBalanceView,
                 PermissionName::PartnerStatementView,
             ],
         };

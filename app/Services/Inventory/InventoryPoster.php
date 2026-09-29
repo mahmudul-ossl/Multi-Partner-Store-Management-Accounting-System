@@ -143,6 +143,7 @@ final class InventoryPoster
         $purchase = Purchase::query()->whereKey($document->purchase_id)->lockForUpdate()->firstOrFail();
         $purchase->due_amount = Money::of((string) $purchase->due_amount)->sub((string) $document->total)->amount();
         $purchase->save();
+        $this->alerts->supplierDue($purchase);
 
         $description = 'Purchase return '.$document->reference;
 
@@ -178,6 +179,7 @@ final class InventoryPoster
             $purchase->due_amount = Money::of((string) $purchase->due_amount)->sub((string) $document->amount)->amount();
             $purchase->paid_amount = Money::of((string) $purchase->paid_amount)->add((string) $document->amount)->amount();
             $purchase->save();
+            $this->alerts->supplierDue($purchase);
         }
 
         $description = 'Supplier payment '.$document->reference;

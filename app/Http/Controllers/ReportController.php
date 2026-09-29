@@ -128,7 +128,7 @@ class ReportController extends Controller
     }
 
     /**
-     * @return array{from: string, to: string, search: string, sort: string, direction: string, partner: string, account: string}
+     * @return array{from: string, to: string, search: string, sort: string, direction: string, partner: string, account: string, status: string}
      */
     private function filters(Request $request): array
     {
@@ -140,6 +140,7 @@ class ReportController extends Controller
             'direction' => $request->string('direction')->toString() ?: 'asc',
             'partner' => $request->string('partner')->toString(),
             'account' => $request->string('account')->toString(),
+            'status' => $request->string('status')->toString() ?: 'completed',
         ];
     }
 }

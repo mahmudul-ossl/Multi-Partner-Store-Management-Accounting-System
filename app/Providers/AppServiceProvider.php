@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Policies\RolePolicy;
 use App\Support\TrustedProxies;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -25,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
     {
         TrustedProxies::apply();
 
+        Model::preventLazyLoading(! $this->app->isProduction());
+
         Password::defaults(function (): Password {
             return Password::min(10)
                 ->mixedCase()
@@ -41,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api', function (Request $request): Limit {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('approvals', function (Request $request): Limit {
+            return Limit::perMinute(30)->by((string) ($request->user()?->id ?: $request->ip()));
         });
 
         Gate::policy(Role::class, RolePolicy::class);

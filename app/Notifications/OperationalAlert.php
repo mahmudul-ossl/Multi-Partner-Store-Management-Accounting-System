@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
 /**
- * Database alerts for low stock and amounts still due.
+ * Stored shape for low stock and payment-due alerts.
+ * Delivery goes through DeliverOperationalAlert so the balance is read when the job runs.
  */
 class OperationalAlert extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public string $kind,
         public int $subjectId,

@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Inventory\InventoryService;
 use App\Services\Ledger\JournalEntryService;
+use App\Services\OperationalNotifier;
 use App\Support\ChartAccountCode;
 use App\Support\Costing;
 use App\Support\Money;
@@ -29,6 +30,7 @@ final class SaleReturnService
         private readonly InventoryService $inventory,
         private readonly JournalEntryService $journal,
         private readonly AuditLogService $audit,
+        private readonly OperationalNotifier $alerts,
     ) {}
 
     /**
@@ -139,6 +141,7 @@ final class SaleReturnService
 
             $sale->due_amount = Money::of((string) $sale->due_amount)->sub($revenue)->amount();
             $sale->save();
+            $this->alerts->customerDue($sale);
 
             $description = 'Sales return '.$return->reference;
             $journalLines = [
