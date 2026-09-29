@@ -15,7 +15,7 @@ final class SelfApprovalGuard
     public static function assertNotSelf(int $creatorUserId, int $actorUserId): void
     {
         if ($creatorUserId === $actorUserId) {
-            throw new SelfApprovalException('A user cannot approve their own request.');
+            throw new SelfApprovalException('You cannot approve your own transaction.');
         }
     }
 }

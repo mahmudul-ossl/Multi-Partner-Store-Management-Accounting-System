@@ -328,7 +328,7 @@ npm run dev
 php artisan queue:work
 ```
 
-Sign in at `/login`. The sidebar lists Dashboard, Partners, Users, Roles, and Audit log according to the signed-in permissions. Investments, withdrawals, inventory, sales, accounting, and reports are labelled as coming later and are not routes yet.
+Sign in at `/login`. The sidebar lists Dashboard, Approvals, Investments, Withdrawals, Transfers, Partners, Users, Roles, Approval settings, and Audit log according to the signed-in permissions. Inventory, sales, accounting management, and reports are labelled as coming later.
 
 ## Testing
 
@@ -349,8 +349,8 @@ npm run build
 - A partner-role account can see only the partner row linked to that user.
 - The last Super Admin cannot be demoted, deactivated, or deleted. Users cannot delete themselves.
 - Audit rows redact passwords and cannot be updated or deleted.
-- `App\Services\Approvals\SelfApprovalGuard` throws if a creator tries to approve their own request. Later approval services must call it. The check is not left to the UI.
-- `TRUSTED_PROXIES` controls `TrustProxies`. Leave it empty on a direct connection. Set `TRUSTED_PROXIES=*` only when the origin is reachable solely through a trusted proxy such as Cloudflare; otherwise list that proxy's addresses. Forwarded `https` is ignored until a proxy is trusted, which is what keeps asset URLs on HTTPS behind a tunnel.
+- `App\Services\Approvals\SelfApprovalGuard` throws `You cannot approve your own transaction.` Approval, duplicate-approval, and permission checks run in `ApprovalService` with row locks. The UI cannot bypass them.
+- Journals are posted only on final approval, must balance, and are reversed instead of deleted.
 
 ## Default seeded logins
 
@@ -372,13 +372,21 @@ Eight partners are seeded. Ownership and investment percentages are different fo
 
 After migrate, seed, and `npm run build`:
 
-1. Sign in as the super admin and land on a dashboard with partner and user counts, plus six cards explicitly marked “Coming in a later phase”.
+1. Sign in as the super admin and land on a dashboard with partner and user counts, approvals waiting on you, cash and bank, plus inventory and sales cards still marked “Coming in a later phase”.
 2. Partners can be searched, filtered, sorted, and paged. Creating one writes an audit row. Archiving soft-deletes it.
 3. A partner can be linked to one unused user account, and that user cannot be linked twice.
 4. Users can be created with a role. A weak password is rejected. The account-created notification is queued.
 5. Roles shows the full permission matrix. Only Super Admin can open it.
 6. Audit log shows login, logout, and user/partner changes. Amounts elsewhere format as `৳100,000.00`. Dates format as `28-Sep-2026`.
 
+## Phase 2
+
+Approvals, partner investments, withdrawals, transfers, partner dashboard, and partner statements are in place. Statements and capital totals are calculated from `journal_entry_lines` on accounts 3000 and 3200. Default thresholds are ৳0–10,000 = 1 approval, ৳10,001–100,000 = 2, and above ৳100,000 = 3, editable at Approval settings. The chart of accounts and the five financial accounts (Cash, DBBL Bank, BRAC Bank, bKash, Nagad) are seeded. Chart-of-accounts management, cash/bank screens, and the general ledger UI are left for Phase 3.
+
+Seeded examples, posted through the real services: Rahim’s ৳8,000 investment (approved), Fatema’s ৳25,000 investment (approved), Karim’s ৳4,000 withdrawal (approved), Nusrat’s ৳20,000 withdrawal (pending), Shahidul’s ৳15,000 withdrawal (rejected, no journal), a ৳3,000 transfer from Rahim to Fatema (approved), and Karim’s ৳150,000 investment (partially approved, no journal).
+
+Later phases should keep using `DocumentStatus`, `ApprovalRequestType`, and `JournalEntryService`. Promotion contributions, partner expenses, and profit share should use the source class names in `App\Support\LedgerSource` so the partner dashboard can split them. Inventory on-hand should come from a `stock_movements` ledger using `StockMovementType`.
+
 ## Later phases
 
-Do not add financial tables by hard-deleting history. The next phase is the approval system with partner investments, withdrawals, and statements. It should use `DocumentStatus` / `ApprovalStatus`, `SelfApprovalGuard`, configurable thresholds stored in the database, and `App\Services\Ledger\BalancedEntry` when journal lines are introduced. Inventory on-hand should come from a `stock_movements` ledger using `StockMovementType`.
+Do not hard-delete financial history. Phase 3 adds chart-of-accounts management, cash and bank screens, and the general ledger. Purchases, sales, promotions, expenses, financial statements, and the remaining reports follow.

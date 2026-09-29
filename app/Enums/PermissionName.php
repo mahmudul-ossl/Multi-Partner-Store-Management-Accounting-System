@@ -22,6 +22,10 @@ enum PermissionName: string
     case PartnerWithdrawalCreate = 'partner.withdrawal.create';
     case PartnerWithdrawalApprove = 'partner.withdrawal.approve';
 
+    case PartnerTransferView = 'partner.transfer.view';
+    case PartnerTransferCreate = 'partner.transfer.create';
+    case PartnerTransferApprove = 'partner.transfer.approve';
+
     case PromotionView = 'promotion.view';
     case PromotionCreate = 'promotion.create';
     case PromotionApprove = 'promotion.approve';

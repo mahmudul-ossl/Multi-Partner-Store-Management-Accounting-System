@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
+import { useCan } from '../../composables/useCan';
 import AppLayout from '../../Layouts/AppLayout.vue';
 import ConfirmDialog from '../../Components/ConfirmDialog.vue';
 import StatusBadge from '../../Components/StatusBadge.vue';
@@ -12,6 +13,7 @@ const props = defineProps({
     can: { type: Object, required: true },
 });
 
+const { can: allowed } = useCan();
 const confirmDelete = ref(false);
 
 const form = useForm({
@@ -59,7 +61,9 @@ function remove() {
                     <StatusBadge :label="partner.status.label" :tone="partner.status.tone" />
                 </div>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-3">
+                <Link v-if="allowed('partner_statement.view')" :href="`/partners/${partner.id}/dashboard`" class="btn btn-secondary">Dashboard</Link>
+                <Link v-if="allowed('partner_statement.view')" :href="`/partners/${partner.id}/statement`" class="btn btn-secondary">Statement</Link>
                 <Link href="/partners" class="btn btn-secondary">Back</Link>
                 <button v-if="can.delete" class="btn btn-danger" type="button" @click="confirmDelete = true">Archive</button>
             </div>

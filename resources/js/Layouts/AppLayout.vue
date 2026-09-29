@@ -14,15 +14,19 @@ const toasts = ref([]);
 
 const navigation = computed(() => [
     { label: 'Dashboard', href: '/dashboard', show: true },
+    { label: 'Approvals', href: '/approvals', show: can('approval.view') || can('partner.investment.approve') || can('partner.withdrawal.approve') || can('partner.transfer.approve') },
+    { label: 'Investments', href: '/investments', show: can('partner.investment.view') },
+    { label: 'Withdrawals', href: '/withdrawals', show: can('partner.withdrawal.view') },
+    { label: 'Transfers', href: '/transfers', show: can('partner.transfer.view') },
+    { label: 'My partnership', href: page.props.auth.user?.partner_id ? `/partners/${page.props.auth.user.partner_id}/dashboard` : '/partners', show: Boolean(page.props.auth.user?.partner_id) },
     { label: 'Partners', href: '/partners', show: can('partner.view') },
     { label: 'Users', href: '/users', show: can('user.manage') },
     { label: 'Roles', href: '/roles', show: can('role.manage') },
+    { label: 'Approval settings', href: '/settings/approvals', show: can('settings.manage') },
     { label: 'Audit log', href: '/audit-logs', show: can('audit_log.view') },
 ].filter((item) => item.show));
 
 const later = [
-    'Investments',
-    'Withdrawals',
     'Inventory',
     'Sales',
     'Accounting',
@@ -44,6 +48,16 @@ const crumbs = computed(() => {
         items.push({ label: 'Roles' });
     } else if (path.startsWith('/audit-logs')) {
         items.push({ label: 'Audit log' });
+    } else if (path.startsWith('/approvals')) {
+        items.push({ label: 'Approvals', href: '/approvals' });
+    } else if (path.startsWith('/investments')) {
+        items.push({ label: 'Investments', href: '/investments' });
+    } else if (path.startsWith('/withdrawals')) {
+        items.push({ label: 'Withdrawals', href: '/withdrawals' });
+    } else if (path.startsWith('/transfers')) {
+        items.push({ label: 'Transfers', href: '/transfers' });
+    } else if (path.startsWith('/settings')) {
+        items.push({ label: 'Approval settings' });
     }
 
     return items;
