@@ -6,6 +6,7 @@ namespace App\Http\Requests\Accounting;
 
 use App\Enums\FinancialAccountType;
 use App\Models\FinancialAccount;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -45,7 +46,7 @@ class StoreFinancialAccountRequest extends FormRequest
             'type' => ['required', Rule::enum(FinancialAccountType::class)],
             'chart_of_account_id' => ['required', 'integer', 'exists:chart_of_accounts,id'],
             'opening_balance' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
-            'opening_date' => ['nullable', 'date', 'required_unless:opening_balance,0,0.0,0.00'],
+            'opening_date' => ['nullable', 'date', 'required_unless:opening_balance,0,0.0,0.00', new OpenAccountingPeriod],
         ];
     }
 }

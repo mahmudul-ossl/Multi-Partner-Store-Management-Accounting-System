@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use Illuminate\Contracts\Debug\ShouldntReport;
 use RuntimeException;
 
-class UnbalancedEntryException extends RuntimeException {}
+class UnbalancedEntryException extends RuntimeException implements ShouldntReport {}

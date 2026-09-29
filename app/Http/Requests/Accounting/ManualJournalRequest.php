@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Accounting;
 
+use App\Exceptions\UnbalancedEntryException;
 use App\Models\ManualJournal;
+use App\Rules\OpenAccountingPeriod;
+use App\Services\Ledger\BalancedEntry;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Validator;
+use InvalidArgumentException;
 
 class ManualJournalRequest extends FormRequest
 {
@@ -59,7 +64,7 @@ class ManualJournalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'entry_date' => ['required', 'date'],
+            'entry_date' => ['required', 'date', new OpenAccountingPeriod],
             'description' => ['required', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:2'],
             'lines.*.account_code' => ['required', 'string', 'exists:chart_of_accounts,code'],
@@ -69,5 +74,26 @@ class ManualJournalRequest extends FormRequest
             'lines.*.credit' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $lines = $this->input('lines', []);
+
+            if (! is_array($lines)) {
+                return;
+            }
+
+            try {
+                BalancedEntry::assertBalanced($lines);
+            } catch (UnbalancedEntryException|InvalidArgumentException $exception) {
+                $validator->errors()->add('lines', $exception->getMessage());
+            }
+        });
     }
 }

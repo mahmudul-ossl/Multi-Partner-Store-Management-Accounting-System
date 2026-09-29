@@ -7,6 +7,7 @@ namespace App\Http\Requests\Spending;
 use App\Enums\ExpenseCategory;
 use App\Enums\PaymentMethod;
 use App\Models\Expense;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -42,7 +43,7 @@ class ExpenseRequest extends FormRequest
         return [
             'category' => ['required', Rule::enum(ExpenseCategory::class)],
             'amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
-            'transaction_date' => ['required', 'date'],
+            'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'description' => ['required', 'string', 'max:2000'],
             'partner_id' => ['nullable', 'integer', 'exists:partners,id'],
             'payment_method' => [

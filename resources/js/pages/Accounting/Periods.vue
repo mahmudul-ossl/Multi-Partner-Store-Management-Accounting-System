@@ -33,6 +33,7 @@ function submit() {
             <div>
                 <label class="label" for="close-date">Close through</label>
                 <input id="close-date" v-model="form.closed_through" class="field" type="date" required>
+                <p v-if="form.errors.closed_through" class="error">{{ form.errors.closed_through }}</p>
             </div>
             <div class="md:col-span-2">
                 <label class="label" for="close-note">Note</label>

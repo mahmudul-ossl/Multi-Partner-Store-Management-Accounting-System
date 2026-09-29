@@ -6,6 +6,7 @@ namespace App\Http\Requests\Inventory;
 
 use App\Enums\StockAdjustmentKind;
 use App\Models\StockAdjustment;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -43,7 +44,7 @@ class StockAdjustmentRequest extends FormRequest
             'quantity' => ['required', 'regex:/^\d+(\.\d{1,3})?$/'],
             'direction' => ['nullable', Rule::in(['increase', 'decrease'])],
             'unit_cost' => ['nullable', 'regex:/^\d+(\.\d{1,4})?$/'],
-            'transaction_date' => ['required', 'date'],
+            'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'reason' => ['required', 'string', 'max:1000'],
         ];
     }

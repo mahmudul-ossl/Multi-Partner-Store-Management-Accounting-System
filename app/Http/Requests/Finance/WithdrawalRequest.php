@@ -6,6 +6,7 @@ namespace App\Http\Requests\Finance;
 
 use App\Enums\PaymentMethod;
 use App\Models\PartnerWithdrawal;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -45,7 +46,7 @@ class WithdrawalRequest extends FormRequest
         return [
             'partner_id' => ['required', 'integer', 'exists:partners,id'],
             'amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/', 'not_in:0,0.0,0.00'],
-            'transaction_date' => ['required', 'date'],
+            'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'reason' => ['required', 'string', 'max:255'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
             'financial_account_id' => ['required', 'integer', 'exists:financial_accounts,id'],

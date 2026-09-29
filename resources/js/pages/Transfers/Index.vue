@@ -107,6 +107,7 @@ function submit() {
                 </div>
                 <input v-model="form.amount" class="field" required placeholder="3000.00">
                 <input v-model="form.transaction_date" class="field" type="date" required>
+                <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                 <textarea v-model="form.note" class="field" rows="3" />
                 <button class="btn btn-primary" type="submit" :disabled="form.processing">Submit for approval</button>
             </form>

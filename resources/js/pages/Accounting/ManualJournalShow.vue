@@ -81,6 +81,7 @@ function cancel() {
             <h2 class="text-sm font-semibold">Edit while it is still pending</h2>
             <div class="grid gap-4 sm:grid-cols-2">
                 <input v-model="form.entry_date" class="field" type="date" required>
+                <p v-if="form.errors.entry_date" class="error">{{ form.errors.entry_date }}</p>
                 <input v-model="form.description" class="field" required>
             </div>
             <div v-for="(line, index) in form.lines" :key="index" class="grid gap-3 sm:grid-cols-2">

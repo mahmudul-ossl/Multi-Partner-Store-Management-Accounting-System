@@ -6,6 +6,7 @@ namespace App\Http\Requests\Inventory;
 
 use App\Enums\PaymentMethod;
 use App\Models\SupplierPayment;
+use App\Rules\OpenAccountingPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -50,7 +51,7 @@ class SupplierPaymentRequest extends FormRequest
             'financial_account_id' => ['required', 'integer', 'exists:financial_accounts,id'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
             'amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
-            'payment_date' => ['required', 'date'],
+            'payment_date' => ['required', 'date', new OpenAccountingPeriod],
             'note' => ['nullable', 'string', 'max:2000'],
         ];
     }

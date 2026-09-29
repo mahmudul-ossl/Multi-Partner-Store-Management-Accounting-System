@@ -30,6 +30,7 @@ const otherError = computed(() => {
     const errors = { ...form.errors };
     delete errors.payment_method;
     delete errors.financial_account_id;
+    delete errors.transaction_date;
 
     return Object.values(errors)[0] || '';
 });
@@ -101,6 +102,7 @@ function submit() {
                     <div>
                         <label class="label">Date</label>
                         <input v-model="form.transaction_date" class="field" type="date" required>
+                        <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                     </div>
                     <div>
                         <label class="label">Partner (if they paid)</label>

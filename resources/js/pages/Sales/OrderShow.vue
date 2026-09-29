@@ -122,6 +122,7 @@ function submitReturn() {
         <form v-if="can.return && sale.completed" class="card mt-4 grid gap-3 p-5" @submit.prevent="submitReturn">
             <h2 class="font-semibold">Return goods</h2>
             <input v-model="returning.transaction_date" class="field max-w-xs" type="date" required>
+            <p v-if="returning.errors.transaction_date" class="error">{{ returning.errors.transaction_date }}</p>
             <div v-for="line in returning.items" :key="line.sale_item_id" class="grid gap-2 md:grid-cols-2">
                 <p class="text-sm">{{ line.product }}</p>
                 <input v-model="line.quantity" class="field" placeholder="Quantity to return">
@@ -139,6 +140,7 @@ function submitReturn() {
             </select>
             <input v-model="payment.amount" class="field" placeholder="Amount">
             <input v-model="payment.payment_date" class="field" type="date" required>
+            <p v-if="payment.errors.payment_date" class="error">{{ payment.errors.payment_date }}</p>
             <button class="btn btn-primary" type="submit">Post payment</button>
         </form>
 
@@ -150,6 +152,7 @@ function submitReturn() {
             </select>
             <input v-model="refund.amount" class="field" placeholder="Amount">
             <input v-model="refund.transaction_date" class="field" type="date" required>
+            <p v-if="refund.errors.transaction_date" class="error">{{ refund.errors.transaction_date }}</p>
             <button class="btn btn-secondary" type="submit">Submit refund</button>
         </form>
 
@@ -157,6 +160,7 @@ function submitReturn() {
             <h2 class="font-semibold">Cancel this sale</h2>
             <p class="text-sm text-slate-500">Cancellation restores stock and reverses the journal only after approval.</p>
             <input v-model="cancellation.transaction_date" class="field max-w-xs" type="date" required>
+            <p v-if="cancellation.errors.transaction_date" class="error">{{ cancellation.errors.transaction_date }}</p>
             <input v-model="cancellation.reason" class="field" placeholder="Reason" required>
             <div class="flex justify-end"><button class="btn btn-secondary" type="submit">Submit cancellation</button></div>
         </form>
