@@ -11,6 +11,7 @@ use App\Models\ChartOfAccount;
 use App\Models\FinancialAccount;
 use App\Models\JournalEntry;
 use App\Models\User;
+use App\Services\Accounting\PeriodGuard;
 use App\Services\AuditLogService;
 use App\Support\Money;
 use App\Support\Sequence;
@@ -20,7 +21,10 @@ use InvalidArgumentException;
 
 final class JournalEntryService
 {
-    public function __construct(private readonly AuditLogService $audit) {}
+    public function __construct(
+        private readonly AuditLogService $audit,
+        private readonly PeriodGuard $periods,
+    ) {}
 
     /**
      * @param  list<array{
@@ -35,6 +39,7 @@ final class JournalEntryService
     public function post(Model $source, User $actor, string $date, string $description, array $lines): JournalEntry
     {
         return DB::transaction(function () use ($source, $actor, $date, $description, $lines): JournalEntry {
+            $this->periods->assertOpen($date);
             $normalized = $this->normalize($lines);
             BalancedEntry::assertBalanced($normalized);
 

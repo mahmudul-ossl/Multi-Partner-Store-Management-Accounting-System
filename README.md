@@ -431,6 +431,24 @@ Expenses use the categories Rent, Salary, Electricity, Internet, Packaging, Deli
 
 Seeded through the real services: a Facebook campaign with Rahim’s ৳2,000 personal contribution approved and a ৳1,500 business boost left pending, an offline banner paid ৳500 from cash, May rent ৳800 from cash, Fatema’s personal electricity payment of ৳400, and a packaging expense left pending.
 
+## Phase 7
+
+Profit and loss, the balance sheet, and the trial balance read journal lines only. Revenue is the net credit on income accounts. Cost of goods sold is account 5000. Every other expense account is listed by category. Gross profit is revenue minus COGS. Net profit is gross profit minus those expenses. The profit-and-loss filters are today, this week (Monday start), this month, previous month, and a custom range.
+
+The balance sheet is as of a date. Asset balances are debit minus credit. Liability and equity balances are credit minus debit, so partner withdrawals reduce equity. Current earnings are income minus expenses through that date. They are not closed into 3100 Retained Earnings. The page checks that assets equal liabilities plus equity.
+
+The trial balance lists each account’s net on the debit or credit side, including income and expense, so the debit total equals the credit total.
+
+A profit allocation (`App\Models\ProfitAllocation`) waits for `accounting.manage`. The requester cannot approve it. On approval the journal debits 3100 and credits 3000 for each partner. Ownership % and investment % are weights among active partners whose stored percentage is above zero; they do not have to add up to 100. Custom percentages must total 100.0000. Rounding half-up applies to every share except the last, which receives the remainder so the credits equal the debit. Those capital credits appear on the partner statement as profit share.
+
+A period close stores the latest `closed_through` date. Every journal on or before that date is rejected, including a later approval of a document dated inside the closed period. The close date cannot move backward.
+
+Seeded through the real services: ৳770 allocated by ownership on 30 Jun 2026 (Rahim ৳180, and the six active shares add up to ৳770), then the books closed through 31 May 2026. The allocation date stays open. The dashboard inventory card stays marked for a later phase.
+
 ## Later phases
 
-Do not hard-delete financial history or stock movements. Profit share should use `App\Models\ProfitAllocation` (`App\Support\LedgerSource`). Phase 7 statements must be built from the ledger: product sales minus COGS for gross profit, then the expense accounts (including 5100 and the category accounts added in Phase 6) for net profit. The balance sheet must keep assets equal to liabilities plus equity, including current-period earnings. Profit allocation posts a journal (debit retained earnings, credit each partner’s capital) from ownership, investment, or a custom percentage. The dashboard inventory card stays marked for a later phase.
+Phase 8 should reuse `FinancialStatementService` for profit and loss, the balance sheet, and the trial balance instead of adding up the ledger again. The report catalogue (date filter, search, sort, pagination, Excel, and PDF) covers Sales, Purchase, Product Sales, Stock, Stock Movement, Investment, Withdrawal, Partner Statement, Partner Balance, Promotion, Expense, Cash, Bank, Accounts Receivable, Accounts Payable, Profit and Loss, Balance Sheet, Trial Balance, General Ledger, and the Monthly Business Report.
+
+Dashboard cards still to fill: inventory value (the placeholder stays until then), expenses, gross profit, net profit, cash, bank, receivables, payables, pending approvals, and low stock. Charts: monthly sales, profit, investment, withdrawal, expenses, promotion, and stock value. Notifications for low stock, payment due, and supplier payment due. The spec also places Sanctum `/api/v1` in Phase 8. Phase 9 is tests, security, and deployment.
+
+Do not hard-delete financial history or stock movements.

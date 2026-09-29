@@ -15,6 +15,7 @@ use App\Models\AccountTransfer;
 use App\Models\ApprovalRequest;
 use App\Models\Expense;
 use App\Models\ManualJournal;
+use App\Models\ProfitAllocation;
 use App\Models\PromotionPartnerExpense;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
@@ -24,6 +25,7 @@ use App\Models\SalesCancellation;
 use App\Models\StockAdjustment;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AllocationPoster;
 use App\Services\AuditLogService;
 use App\Services\Inventory\InventoryPoster;
 use App\Services\Ledger\AccountingPoster;
@@ -45,6 +47,7 @@ final class ApprovalService
         private readonly InventoryPoster $inventory,
         private readonly SalesPoster $sales,
         private readonly SpendingPoster $spending,
+        private readonly AllocationPoster $allocation,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -215,6 +218,12 @@ final class ApprovalService
 
         if ($document instanceof PromotionPartnerExpense || $document instanceof Expense) {
             $this->spending->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof ProfitAllocation) {
+            $this->allocation->post($document, $actor);
 
             return;
         }
