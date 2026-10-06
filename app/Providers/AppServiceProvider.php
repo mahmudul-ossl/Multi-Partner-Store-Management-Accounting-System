@@ -26,8 +26,6 @@ class AppServiceProvider extends ServiceProvider
     {
         TrustedProxies::apply();
 
-        Model::preventLazyLoading(! $this->app->isProduction());
-
         Password::defaults(function (): Password {
             return Password::min(10)
                 ->mixedCase()

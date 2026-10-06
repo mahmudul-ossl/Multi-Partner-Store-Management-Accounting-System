@@ -281,6 +281,15 @@ SEED_DEMO_PASSWORD="Partner#2026"
 
 ## Docker Setup
 
+`docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, and a `queue` worker. phpMyAdmin is optional and stays off unless you opt in:
+
+```dotenv
+SEED_SUPER_ADMIN_PASSWORD="SuperAdmin#2026"
+SEED_DEMO_PASSWORD="Partner#2026"
+```
+
+## Docker Setup
+
 Use the [Quick start](#quick-start). `docker compose up -d` builds a multi-stage image (Composer, then Vite, then PHP-FPM), starts nginx, MySQL 8, Redis, a queue worker, and the scheduler, and serves http://localhost:8000. Nothing is copied from the host into the image at run time, and no `.env` file is required. phpMyAdmin stays off unless you opt in:
 
 ```bash
