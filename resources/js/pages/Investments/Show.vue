@@ -70,6 +70,7 @@ function reverseDocument() {
                 </select>
                 <input v-model="form.amount" class="field" required>
                 <input v-model="form.transaction_date" class="field" type="date" required>
+                <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                 <select v-model="form.payment_method" class="field">
                     <option v-for="method in paymentMethods" :key="method.value" :value="method.value">{{ method.label }}</option>
                 </select>

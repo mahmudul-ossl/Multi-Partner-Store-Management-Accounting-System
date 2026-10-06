@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApprovalStateException;
+use App\Exceptions\UnbalancedEntryException;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -14,6 +15,7 @@ use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -39,7 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        $exceptions->render(function (ApprovalStateException $exception, Request $request) {
+        $exceptions->render(function (ApprovalStateException|UnbalancedEntryException $exception, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $exception->getMessage()], 422);
             }

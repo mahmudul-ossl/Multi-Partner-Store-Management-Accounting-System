@@ -58,6 +58,7 @@ function save() {
                 <select v-model="form.partner_id" class="field"><option v-for="partner in partners" :key="partner.id" :value="partner.id">{{ partner.name }}</option></select>
                 <input v-model="form.amount" class="field" required>
                 <input v-model="form.transaction_date" class="field" type="date" required>
+                <p v-if="form.errors.transaction_date" class="error">{{ form.errors.transaction_date }}</p>
                 <input v-model="form.reason" class="field" required>
                 <select v-model="form.payment_method" class="field"><option v-for="method in paymentMethods" :key="method.value" :value="method.value">{{ method.label }}</option></select>
                 <select v-model="form.financial_account_id" class="field"><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.name }}</option></select>

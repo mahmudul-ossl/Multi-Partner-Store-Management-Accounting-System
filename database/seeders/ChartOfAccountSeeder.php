@@ -25,6 +25,7 @@ class ChartOfAccountSeeder extends Seeder
             [ChartAccountCode::PartnerCapital, 'Partner Capital', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::RetainedEarnings, 'Retained Earnings', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::PartnerWithdrawals, 'Partner Withdrawals', AccountType::Equity, NormalBalance::Debit],
+            [ChartAccountCode::OpeningBalanceEquity, 'Opening Balance Equity', AccountType::Equity, NormalBalance::Credit],
             [ChartAccountCode::ProductSales, 'Product Sales', AccountType::Income, NormalBalance::Credit],
             [ChartAccountCode::OtherRevenue, 'Other Revenue', AccountType::Income, NormalBalance::Credit],
             [ChartAccountCode::Cogs, 'COGS', AccountType::Expense, NormalBalance::Debit],
@@ -34,6 +35,14 @@ class ChartOfAccountSeeder extends Seeder
             [ChartAccountCode::Delivery, 'Delivery', AccountType::Expense, NormalBalance::Debit],
             [ChartAccountCode::BankCharges, 'Bank Charges', AccountType::Expense, NormalBalance::Debit],
             [ChartAccountCode::OtherExpenses, 'Other Expenses', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Electricity, 'Electricity', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Internet, 'Internet', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Packaging, 'Packaging', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Marketing, 'Marketing', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::FacebookAds, 'Facebook Ads', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Software, 'Software', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::Transport, 'Transport', AccountType::Expense, NormalBalance::Debit],
+            [ChartAccountCode::OfficeExpense, 'Office Expense', AccountType::Expense, NormalBalance::Debit],
         ];
 
         foreach ($accounts as [$code, $name, $type, $normal]) {
@@ -44,6 +53,7 @@ class ChartOfAccountSeeder extends Seeder
                     'type' => $type,
                     'normal_balance' => $normal,
                     'is_active' => true,
+                    'is_system' => true,
                 ],
             );
         }

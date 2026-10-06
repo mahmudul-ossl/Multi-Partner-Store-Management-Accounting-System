@@ -19,6 +19,7 @@ class ChartOfAccount extends Model
         'normal_balance',
         'parent_id',
         'is_active',
+        'is_system',
         'description',
     ];
 
@@ -31,6 +32,7 @@ class ChartOfAccount extends Model
             'type' => AccountType::class,
             'normal_balance' => NormalBalance::class,
             'is_active' => 'boolean',
+            'is_system' => 'boolean',
         ];
     }
 

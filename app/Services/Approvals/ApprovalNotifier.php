@@ -5,13 +5,24 @@ declare(strict_types=1);
 namespace App\Services\Approvals;
 
 use App\Models\ApprovalRequest;
+use App\Models\Expense;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
 use App\Models\PartnerWithdrawal;
+use App\Models\ProfitAllocation;
+use App\Models\PromotionPartnerExpense;
+use App\Models\Purchase;
+use App\Models\PurchaseReturn;
+use App\Models\Refund;
+use App\Models\Sale;
+use App\Models\SalesCancellation;
+use App\Models\StockAdjustment;
+use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Notifications\ApprovalActivity;
 use App\Support\Format;
 use App\Support\Money;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -32,7 +43,17 @@ final class ApprovalNotifier
             'New '.$request->request_type->label().' approval required',
             $this->sentence($request, 'approval required'),
             $request,
+            'approval_required',
         );
+    }
+
+    public function settle(ApprovalRequest $request): void
+    {
+        DatabaseNotification::query()
+            ->where('data->kind', 'approval_required')
+            ->where('data->approval_request_id', $request->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
     }
 
     public function decided(ApprovalRequest $request, string $decision): void
@@ -48,15 +69,16 @@ final class ApprovalNotifier
             $request->request_type->label().' '.$decision,
             $this->sentence($request, $decision),
             $request,
+            'approval_decided',
         );
     }
 
     /**
      * @param  iterable<User>  $recipients
      */
-    private function send(iterable $recipients, string $title, string $message, ApprovalRequest $request): void
+    private function send(iterable $recipients, string $title, string $message, ApprovalRequest $request, string $kind): void
     {
-        $notification = new ApprovalActivity($title, $message, route('approvals.show', $request));
+        $notification = new ApprovalActivity($title, $message, route('approvals.show', $request), (int) $request->id, $kind);
 
         DB::afterCommit(function () use ($recipients, $notification): void {
             Notification::send($recipients, $notification);
@@ -66,7 +88,7 @@ final class ApprovalNotifier
     private function sentence(ApprovalRequest $request, string $decision): string
     {
         $document = $request->reference;
-        $date = $document->transaction_date ?? $request->requested_at;
+        $date = $document->transaction_date ?? $document->payment_date ?? $document->entry_date ?? $request->requested_at;
 
         return sprintf(
             'New %s %s — Amount %s, Partner %s, Date %s',
@@ -85,7 +107,29 @@ final class ApprovalNotifier
         return match (true) {
             $document instanceof PartnerInvestment, $document instanceof PartnerWithdrawal => $document->loadMissing('partner')->partner?->name ?? '—',
             $document instanceof PartnerTransfer => ($document->loadMissing('fromPartner', 'toPartner')->fromPartner?->name ?? '—').' to '.($document->toPartner?->name ?? '—'),
+            $document instanceof Purchase, $document instanceof PurchaseReturn, $document instanceof SupplierPayment => $document->loadMissing('supplier')->supplier?->name ?? '—',
+            $document instanceof StockAdjustment => $document->loadMissing('product')->product?->name ?? '—',
+            $document instanceof Sale, $document instanceof Refund => $document->loadMissing('customer')->customer?->name ?? '—',
+            $document instanceof SalesCancellation => $document->loadMissing('sale.customer')->sale?->customer?->name ?? '—',
+            $document instanceof PromotionPartnerExpense => $document->loadMissing('partner')->partner?->name ?? '—',
+            $document instanceof Expense => $document->partner_id === null ? 'Business' : ($document->loadMissing('partner')->partner?->name ?? '—'),
+            $document instanceof ProfitAllocation => $this->allocationPartners($document),
             default => '—',
         };
+    }
+
+    private function allocationPartners(ProfitAllocation $document): string
+    {
+        $names = $document->loadMissing('lines.partner')->lines
+            ->map(fn ($line) => $line->partner?->name)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($names->count() === 0 || $names->count() > 3) {
+            return 'Partnership';
+        }
+
+        return $names->implode(', ');
     }
 }

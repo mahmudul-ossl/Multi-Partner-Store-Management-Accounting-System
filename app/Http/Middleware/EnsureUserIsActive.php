@@ -16,6 +16,10 @@ class EnsureUserIsActive
         $user = $request->user();
 
         if ($user !== null && ! $user->is_active) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'This account is inactive. Contact an administrator.'], 403);
+            }
+
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

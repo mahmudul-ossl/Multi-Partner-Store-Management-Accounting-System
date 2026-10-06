@@ -11,10 +11,28 @@ use App\Enums\AuditAction;
 use App\Enums\DocumentStatus;
 use App\Exceptions\ApprovalStateException;
 use App\Exceptions\DuplicateApprovalException;
+use App\Models\AccountTransfer;
 use App\Models\ApprovalRequest;
+use App\Models\Expense;
+use App\Models\ManualJournal;
+use App\Models\ProfitAllocation;
+use App\Models\PromotionPartnerExpense;
+use App\Models\Purchase;
+use App\Models\PurchaseReturn;
+use App\Models\Refund;
+use App\Models\Sale;
+use App\Models\SalesCancellation;
+use App\Models\StockAdjustment;
+use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AllocationPoster;
 use App\Services\AuditLogService;
+use App\Services\Inventory\InventoryPoster;
+use App\Services\Ledger\AccountingPoster;
 use App\Services\Ledger\PartnerFinancePoster;
+use App\Services\Sales\SalesPoster;
+use App\Services\Spending\SpendingPoster;
+use App\Support\DashboardCache;
 use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +44,11 @@ final class ApprovalService
         private readonly ApprovalThresholdResolver $thresholds,
         private readonly ApprovalNotifier $notifier,
         private readonly PartnerFinancePoster $poster,
+        private readonly AccountingPoster $accounting,
+        private readonly InventoryPoster $inventory,
+        private readonly SalesPoster $sales,
+        private readonly SpendingPoster $spending,
+        private readonly AllocationPoster $allocation,
         private readonly AuditLogService $audit,
     ) {}
 
@@ -56,6 +79,7 @@ final class ApprovalService
             ]);
 
             $this->notifier->requested($request);
+            DashboardCache::bump();
 
             return $request;
         });
@@ -88,6 +112,7 @@ final class ApprovalService
                     'required_approvals' => $request->required_approvals,
                     'comment' => $comment,
                 ], $actor);
+                DashboardCache::bump();
 
                 return $request;
             }
@@ -100,7 +125,7 @@ final class ApprovalService
             $document->status = DocumentStatus::Approved;
             $document->save();
 
-            $this->poster->post($document, $actor);
+            $this->postDocument($document, $actor);
 
             $this->audit->record(AuditAction::Approved, $document, null, [
                 'status' => DocumentStatus::Approved->value,
@@ -108,6 +133,8 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'approved');
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request->fresh(['actions.user', 'reference']);
         });
@@ -143,6 +170,8 @@ final class ApprovalService
             ], $actor);
 
             $this->notifier->decided($request, 'rejected');
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request;
         });
@@ -169,9 +198,46 @@ final class ApprovalService
             $this->audit->record(AuditAction::Cancelled, $document, null, [
                 'status' => DocumentStatus::Cancelled->value,
             ], $actor);
+            $this->notifier->settle($request);
+            DashboardCache::bump();
 
             return $request;
         });
+    }
+
+    private function postDocument(Model $document, User $actor): void
+    {
+        if ($document instanceof ManualJournal || $document instanceof AccountTransfer) {
+            $this->accounting->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof Purchase || $document instanceof PurchaseReturn || $document instanceof SupplierPayment || $document instanceof StockAdjustment) {
+            $this->inventory->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof Sale || $document instanceof Refund || $document instanceof SalesCancellation) {
+            $this->sales->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof PromotionPartnerExpense || $document instanceof Expense) {
+            $this->spending->post($document, $actor);
+
+            return;
+        }
+
+        if ($document instanceof ProfitAllocation) {
+            $this->allocation->post($document, $actor);
+
+            return;
+        }
+
+        $this->poster->post($document, $actor);
     }
 
     public function syncAmount(Model $document, ApprovalRequestType $type, string|int $amount): void

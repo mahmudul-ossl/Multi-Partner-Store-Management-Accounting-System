@@ -1,0 +1,146 @@
+# Hardened production stack. Requires a host .env. Does not seed on boot.
+# Local use is the root docker-compose.yml (`docker compose up -d`).
+
+x-app-service: &app-service
+  image: mpstore-app:prod
+  restart: unless-stopped
+  env_file:
+    - .env
+  volumes:
+    - app_storage:/var/www/html/storage
+    - bootstrap_state:/var/www/secrets
+  networks:
+    - mpstore
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  APP_DEBUG: "false"
+  DB_HOST: mysql
+  REDIS_HOST: redis
+  SEED_ON_BOOT: "false"
+
+services:
+  app:
+    <<: *app-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    environment:
+      <<: *app-environment
+      CONTAINER_ROLE: app
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 120s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    image: mpstore-nginx:prod
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - app_storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - mpstore
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE:?Set DB_DATABASE in .env}"
+      MYSQL_USER: "${DB_USERNAME:?Set DB_USERNAME in .env}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --local-infile=0
+      - --skip-symbolic-links
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - mpstore
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - mpstore
+
+  queue:
+    <<: *app-service
+    environment:
+      <<: *app-environment
+      CONTAINER_ROLE: worker
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--timeout=90"]
+    healthcheck:
+      test: ["CMD", "php", "artisan", "queue:monitor", "redis:default", "--max=1000"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 40s
+
+  scheduler:
+    <<: *app-service
+    environment:
+      <<: *app-environment
+      CONTAINER_ROLE: worker
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      test: ["CMD", "php", "artisan", "schedule:list"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 40s
+
+networks:
+  mpstore:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  app_storage:
+  bootstrap_state:

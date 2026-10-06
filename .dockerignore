@@ -3,6 +3,9 @@
 node_modules
 vendor
 storage/logs
+storage/framework
+storage/inertia-devtools
+storage/pail
 tests
 .env
 .phpunit.cache

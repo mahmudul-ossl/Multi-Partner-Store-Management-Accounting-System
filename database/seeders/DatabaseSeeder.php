@@ -184,6 +184,11 @@ class DatabaseSeeder extends Seeder
             FinancialAccountSeeder::class,
             ApprovalThresholdSeeder::class,
             PartnerFinanceExampleSeeder::class,
+            AccountingExampleSeeder::class,
+            InventoryExampleSeeder::class,
+            SalesExampleSeeder::class,
+            SpendingExampleSeeder::class,
+            AllocationExampleSeeder::class,
         ]);
     }
 

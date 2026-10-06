@@ -8,14 +8,16 @@ use App\Enums\ApprovalRequestType;
 use App\Http\Requests\Approvals\ThresholdRequest;
 use App\Models\ApprovalThreshold;
 use App\Services\Approvals\ApprovalThresholdService;
+use App\Services\Sales\SalesSettings;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ApprovalSettingController extends Controller
 {
-    public function index(): Response
+    public function index(SalesSettings $sales): Response
     {
         $this->authorize('viewAny', ApprovalThreshold::class);
 
@@ -37,7 +39,19 @@ class ApprovalSettingController extends Controller
         return Inertia::render('Settings/Approvals', [
             'thresholds' => $thresholds,
             'types' => ApprovalRequestType::options(),
+            'discountThreshold' => $sales->threshold(),
         ]);
+    }
+
+    public function updateDiscount(Request $request, SalesSettings $sales): RedirectResponse
+    {
+        $this->authorize('viewAny', ApprovalThreshold::class);
+        $data = $request->validate([
+            'large_discount_threshold' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
+        ]);
+        $sales->updateThreshold($data['large_discount_threshold']);
+
+        return redirect()->route('settings.approvals.index')->with('success', 'Large discount threshold saved.');
     }
 
     public function store(ThresholdRequest $request, ApprovalThresholdService $thresholds): RedirectResponse
