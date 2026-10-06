@@ -8,6 +8,7 @@ The system is designed for businesses where multiple partners jointly operate a 
 
 ## Table of Contents
 
+* [Quick start](#quick-start)
 * [Overview](#overview)
 * [Key Features](#key-features)
 * [Core Business Workflow](#core-business-workflow)
@@ -36,6 +37,32 @@ The system is designed for businesses where multiple partners jointly operate a 
 * [Inventory Principles](#inventory-principles)
 * [Future Improvements](#future-improvements)
 * [License](#license)
+
+---
+
+# Quick start
+
+Docker is the only requirement. From a fresh clone:
+
+```bash
+git clone https://github.com/mahmudul-ossl/Multi-Partner-Store-Management-Accounting-System.git
+cd Multi-Partner-Store-Management-Accounting-System
+docker compose up -d
+```
+
+The image installs PHP dependencies and builds the Vite assets. On first start the app container writes `.env`, generates `APP_KEY` and stores it in a volume, waits for MySQL, migrates, and seeds the demo once. Restarts keep that data.
+
+Open http://localhost:8000. Set `APP_PORT` to use another host port, and set `APP_URL` to the same origin (the default is `http://localhost:8000`).
+
+Sign in as `admin@mpstore.test` / `Partner#2026`. The super admin is `superadmin@mpstore.test` / `SuperAdmin#2026`. Other seeded staff and partner logins use `Partner#2026`.
+
+Wipe the database, uploaded files, and the generated key:
+
+```bash
+docker compose down -v
+```
+
+Production stays on `docker-compose.prod.yml`. See [docs/deployment.md](docs/deployment.md).
 
 ---
 
@@ -254,27 +281,13 @@ SEED_DEMO_PASSWORD="Partner#2026"
 
 ## Docker Setup
 
-`docker compose up -d` starts `app` (PHP-FPM), `nginx`, `mysql`, `redis`, a `queue` worker, and a `scheduler`. phpMyAdmin is optional and stays off unless you opt in. Production uses `docker-compose.prod.yml`: a multi-stage image, `www-data`, OPcache, and no published MySQL port. See [docs/deployment.md](docs/deployment.md).
-
-```bash
-cp .env.example .env
-php artisan key:generate
-npm ci && npm run build
-docker compose up -d --build
-docker compose exec app php artisan db:seed --force
-```
-
-Inside the containers, `DB_HOST` and `REDIS_HOST` are overridden to `mysql` and `redis`. The app container runs migrations on start. Seed is a separate command so production boots do not reload demo people.
-
-Open the app at `http://localhost:8080` (or `APP_PORT`).
+Use the [Quick start](#quick-start). `docker compose up -d` builds a multi-stage image (Composer, then Vite, then PHP-FPM), starts nginx, MySQL 8, Redis, a queue worker, and the scheduler, and serves http://localhost:8000. Nothing is copied from the host into the image at run time, and no `.env` file is required. phpMyAdmin stays off unless you opt in:
 
 ```bash
 docker compose --profile tools up -d
 ```
 
-That also starts phpMyAdmin on `PHPMYADMIN_PORT` (8081 by default).
-
-Build the frontend before the first request. `public/build` is not committed, and nginx serves the mounted project directory.
+phpMyAdmin listens on `PHPMYADMIN_PORT` (8081 by default). MySQL itself is not published on the host, so it will not collide with a local server. Production uses `docker-compose.prod.yml`: the same image, `www-data`, OPcache, no demo seed on boot, and no published MySQL port. See [docs/deployment.md](docs/deployment.md).
 
 ## Environment Configuration
 
