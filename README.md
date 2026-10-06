@@ -371,7 +371,7 @@ npm run build
 - A partner-role account can see only the partner row linked to that user.
 - The last Super Admin cannot be demoted, deactivated, or deleted. Users cannot delete themselves.
 - Audit rows redact passwords and cannot be updated or deleted.
-- `App\Services\Approvals\SelfApprovalGuard` throws `You cannot approve your own transaction.` Approval, duplicate-approval, and permission checks run in `ApprovalService` with row locks. The UI cannot bypass them.
+- `App\Services\Approvals\SelfApprovalGuard` throws `You cannot approve your own transaction.` except for Super Admin. Super Admin submissions are auto-approved and posted in `ApprovalService::submit`. Approval, duplicate-approval, and permission checks run in `ApprovalService` with row locks. The UI cannot bypass them for other roles.
 - Journals are posted only on final approval, must balance, and are reversed instead of deleted.
 - `TRUSTED_PROXIES` controls `TrustProxies`. Leave it empty on a direct connection. Set `TRUSTED_PROXIES=*` only when the origin is reachable solely through a trusted proxy such as Cloudflare; otherwise list that proxy's addresses. Forwarded `https` is ignored until a proxy is trusted, which is what keeps asset URLs on HTTPS behind a tunnel.
 

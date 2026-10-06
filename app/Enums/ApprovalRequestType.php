@@ -16,6 +16,7 @@ enum ApprovalRequestType: string
     case PartnerExpense = 'partner_expense';
     case PromotionExpense = 'promotion_expense';
     case Purchase = 'purchase';
+    case SalesIncome = 'sales_income';
     case StockAdjustment = 'stock_adjustment';
     case Refund = 'refund';
     case LargeDiscount = 'large_discount';
@@ -34,6 +35,7 @@ enum ApprovalRequestType: string
             self::PartnerExpense => 'Partner expense',
             self::PromotionExpense => 'Promotion expense',
             self::Purchase => 'Purchase',
+            self::SalesIncome => 'Sales income',
             self::StockAdjustment => 'Stock adjustment',
             self::Refund => 'Refund',
             self::LargeDiscount => 'Large discount',
@@ -54,6 +56,7 @@ enum ApprovalRequestType: string
             self::PartnerExpense => PermissionName::ExpenseApprove,
             self::PromotionExpense => PermissionName::PromotionApprove,
             self::Purchase => PermissionName::PurchaseApprove,
+            self::SalesIncome => PermissionName::SaleCancel,
             self::StockAdjustment => PermissionName::StockAdjustApprove,
             self::Refund, self::LargeDiscount, self::SalesCancellation => PermissionName::SaleCancel,
             self::ManualJournal, self::AccountTransfer, self::ProfitAllocation => PermissionName::AccountingManage,

@@ -8,7 +8,6 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Unit;
-use App\Models\Warehouse;
 use App\Services\Inventory\CatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +24,6 @@ class CatalogController extends Controller
             'categories' => Category::query()->orderBy('name')->get(['id', 'name', 'description']),
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
             'units' => Unit::query()->orderBy('name')->get(['id', 'name', 'abbreviation']),
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'name', 'address', 'is_default']),
             'can' => ['manage' => request()->user()?->can('create', Product::class) ?? false],
         ]);
     }

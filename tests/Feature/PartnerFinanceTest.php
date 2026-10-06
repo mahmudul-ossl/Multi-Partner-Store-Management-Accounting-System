@@ -241,6 +241,33 @@ class PartnerFinanceTest extends FinanceTestCase
                 ->where('current_capital.amount', '25000.00'));
     }
 
+    public function test_super_admin_submissions_are_auto_approved_and_posted(): void
+    {
+        $superAdmin = $this->userWithRole(RoleName::SuperAdmin);
+        $partner = Partner::factory()->create(['name' => 'Sirajul Islam']);
+        $cashBefore = (string) $this->cashAccount()->current_balance;
+
+        $this->actingAs($superAdmin)
+            ->post(route('investments.store'), [
+                'partner_id' => $partner->id,
+                'amount' => '5000.00',
+                'transaction_date' => '2026-09-28',
+                'payment_method' => 'cash',
+                'financial_account_id' => $this->cashAccount()->id,
+                'note' => 'Seed capital',
+            ])
+            ->assertRedirect();
+
+        $investment = PartnerInvestment::query()->firstOrFail();
+        $approval = $investment->approvalRequest()->firstOrFail();
+
+        $this->assertSame(DocumentStatus::Approved, $investment->status);
+        $this->assertSame(ApprovalStatus::Approved, $approval->status);
+        $this->assertSame((int) $approval->required_approvals, (int) $approval->completed_approvals);
+        $this->assertNotNull($investment->journal_entry_id);
+        $this->assertSame(bcadd($cashBefore, '5000.00', 2), (string) $this->cashAccount()->fresh()->current_balance);
+    }
+
     public function test_direct_requests_cannot_bypass_approval_or_post_a_journal(): void
     {
         [$partnerUser, $partner] = $this->linkedPartner('Tanvir Ahmed');

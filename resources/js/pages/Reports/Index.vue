@@ -11,7 +11,7 @@ defineProps({
     <AppLayout title="Reports">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
-            <p class="mt-1 text-sm text-slate-500">Every total on these reports comes from the ledger or the stock ledger. Filter, search, and export the ones your role can open.</p>
+            <p class="mt-1 text-sm text-slate-500">Every total on these reports comes from the ledger. Filter, search, and export the ones your role can open.</p>
         </div>
 
         <section class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -8,8 +8,6 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountController;
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CustomerPaymentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinancialAccountController;
@@ -29,14 +27,9 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseReturnController;
-use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
-use App\Http\Controllers\SaleController;
-use App\Http\Controllers\SaleReturnController;
-use App\Http\Controllers\SalesCancellationController;
-use App\Http\Controllers\StockAdjustmentController;
-use App\Http\Controllers\StockController;
+use App\Http\Controllers\SalesIncomeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\TransferController;
@@ -159,28 +152,15 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/inventory/purchases', [PurchaseController::class, 'index'])->name('inventory.purchases.index');
     Route::post('/inventory/purchases', [PurchaseController::class, 'store'])->name('inventory.purchases.store');
     Route::get('/inventory/purchases/{purchase}', [PurchaseController::class, 'show'])->name('inventory.purchases.show');
+    Route::put('/inventory/purchases/{purchase}', [PurchaseController::class, 'update'])->name('inventory.purchases.update');
 
     Route::get('/inventory/returns', [PurchaseReturnController::class, 'index'])->name('inventory.returns.index');
     Route::post('/inventory/returns', [PurchaseReturnController::class, 'store'])->name('inventory.returns.store');
     Route::get('/inventory/returns/{purchase_return}', [PurchaseReturnController::class, 'show'])->name('inventory.returns.show');
 
-    Route::get('/inventory/stock', [StockController::class, 'index'])->name('inventory.stock.index');
-    Route::get('/inventory/stock/movements', [StockController::class, 'movements'])->name('inventory.stock.movements');
-    Route::get('/inventory/stock/low', [StockController::class, 'low'])->name('inventory.stock.low');
-
-    Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('inventory.adjustments.index');
-    Route::post('/inventory/adjustments', [StockAdjustmentController::class, 'store'])->name('inventory.adjustments.store');
-
-    Route::get('/sales/customers', [CustomerController::class, 'index'])->name('sales.customers.index');
-    Route::post('/sales/customers', [CustomerController::class, 'store'])->name('sales.customers.store');
-    Route::get('/sales/customers/{customer}', [CustomerController::class, 'show'])->name('sales.customers.show');
-
-    Route::get('/sales/orders', [SaleController::class, 'index'])->name('sales.orders.index');
-    Route::post('/sales/orders', [SaleController::class, 'store'])->name('sales.orders.store');
-    Route::get('/sales/orders/{sale}', [SaleController::class, 'show'])->name('sales.orders.show');
-    Route::post('/sales/payments', [CustomerPaymentController::class, 'store'])->name('sales.payments.store');
-    Route::post('/sales/refunds', [RefundController::class, 'store'])->name('sales.refunds.store');
-    Route::post('/sales/cancellations', [SalesCancellationController::class, 'store'])->name('sales.cancellations.store');
+    Route::get('/sales', [SalesIncomeController::class, 'index'])->name('sales.index');
+    Route::post('/sales', [SalesIncomeController::class, 'store'])->name('sales.store');
+    Route::get('/sales/{sales_income}', [SalesIncomeController::class, 'show'])->name('sales.show');
 
     Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
     Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
@@ -190,10 +170,6 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::get('/expenses/{expense}', [ExpenseController::class, 'show'])->name('expenses.show');
-
-    Route::get('/sales/returns', [SaleReturnController::class, 'index'])->name('sales.returns.index');
-    Route::post('/sales/returns', [SaleReturnController::class, 'store'])->name('sales.returns.store');
-    Route::get('/sales/returns/{sale_return}', [SaleReturnController::class, 'show'])->name('sales.returns.show');
 
     Route::get('/settings/approvals', [ApprovalSettingController::class, 'index'])->name('settings.approvals.index');
     Route::put('/settings/approvals/discount', [ApprovalSettingController::class, 'updateDiscount'])->name('settings.approvals.discount');

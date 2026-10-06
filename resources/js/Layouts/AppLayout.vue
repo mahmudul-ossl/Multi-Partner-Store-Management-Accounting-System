@@ -26,13 +26,7 @@ const navigation = computed(() => [
     { label: 'Suppliers', href: '/inventory/suppliers', show: can('supplier.view') },
     { label: 'Purchases', href: '/inventory/purchases', show: can('purchase.view') },
     { label: 'Purchase returns', href: '/inventory/returns', show: can('purchase.view') },
-    { label: 'Stock', href: '/inventory/stock', show: can('stock.view') },
-    { label: 'Stock movements', href: '/inventory/stock/movements', show: can('stock.view') },
-    { label: 'Low stock', href: '/inventory/stock/low', show: can('stock.view') },
-    { label: 'Stock adjustments', href: '/inventory/adjustments', show: can('stock.view') },
-    { label: 'Customers', href: '/sales/customers', show: can('customer.view') },
-    { label: 'Sales', href: '/sales/orders', show: can('sale.view') },
-    { label: 'Sales returns', href: '/sales/returns', show: can('sale.view') },
+    { label: 'Sales', href: '/sales', show: can('sale.view') },
     { label: 'Promotions', href: '/promotions', show: can('promotion.view') },
     { label: 'Expenses', href: '/expenses', show: can('expense.view') },
     { label: 'Partners', href: '/partners', show: can('partner.view') },
@@ -122,20 +116,8 @@ const crumbs = computed(() => {
         items.push({ label: 'Purchases', href: '/inventory/purchases' });
     } else if (path.startsWith('/inventory/returns')) {
         items.push({ label: 'Purchase returns', href: '/inventory/returns' });
-    } else if (path.startsWith('/inventory/stock/low')) {
-        items.push({ label: 'Low stock' });
-    } else if (path.startsWith('/inventory/stock/movements')) {
-        items.push({ label: 'Stock movements' });
-    } else if (path.startsWith('/inventory/stock')) {
-        items.push({ label: 'Stock' });
-    } else if (path.startsWith('/inventory/adjustments')) {
-        items.push({ label: 'Stock adjustments' });
-    } else if (path.startsWith('/sales/customers')) {
-        items.push({ label: 'Customers', href: '/sales/customers' });
-    } else if (path.startsWith('/sales/orders')) {
-        items.push({ label: 'Sales', href: '/sales/orders' });
-    } else if (path.startsWith('/sales/returns')) {
-        items.push({ label: 'Sales returns', href: '/sales/returns' });
+    } else if (path.startsWith('/sales')) {
+        items.push({ label: 'Sales', href: '/sales' });
     } else if (path.startsWith('/promotions')) {
         items.push({ label: 'Promotions', href: '/promotions' });
     } else if (path.startsWith('/expenses')) {
@@ -248,7 +230,7 @@ function isActive(href) {
                                 <p class="text-sm font-semibold text-slate-900">Notifications</p>
                                 <button v-if="notifications.unread" class="text-xs font-semibold text-teal-700" type="button" @click="markAllNotifications">Mark all read</button>
                             </div>
-                            <p class="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Payment and stock</p>
+                            <p class="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Payments</p>
                             <p v-if="!notifications.operational?.length" class="px-2 py-2 text-sm text-slate-500">No operational alerts.</p>
                             <button
                                 v-for="item in notifications.operational"

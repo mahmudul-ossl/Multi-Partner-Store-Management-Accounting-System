@@ -11,7 +11,7 @@ use RuntimeException;
 
 class DashboardAndAuditTest extends FeatureTestCase
 {
-    public function test_dashboard_shows_real_counts_and_inventory_value(): void
+    public function test_dashboard_shows_real_counts_and_sales(): void
     {
         $admin = $this->userWithRole(RoleName::Admin);
         Partner::factory()->count(3)->create();
@@ -27,8 +27,6 @@ class DashboardAndAuditTest extends FeatureTestCase
                 ->where('summary.users_total', 1)
                 ->where('summary.pending_approvals', 0)
                 ->missing('summary.placeholders')
-                ->where('summary.show_inventory', true)
-                ->where('summary.inventory_value', '৳0.00')
                 ->where('summary.show_sales', true)
                 ->where('summary.sales', '৳0.00'));
     }
@@ -69,18 +67,25 @@ class DashboardAndAuditTest extends FeatureTestCase
         $log->update(['ip_address' => '10.0.0.1']);
     }
 
-    public function test_database_seeder_creates_the_demo_partnership(): void
+    public function test_database_seeder_creates_super_admin_and_partners(): void
     {
         $this->seed();
 
         $this->assertDatabaseHas('users', ['email' => 'superadmin@mpstore.test']);
+        $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseHas('partners', [
             'partner_code' => 'P-0001',
-            'name' => 'Rahim Uddin',
-            'ownership_percentage' => '18.0000',
-            'investment_percentage' => '20.0000',
+            'name' => 'Sirajul Islam',
+            'ownership_percentage' => '50.0000',
+            'investment_percentage' => '50.0000',
         ]);
-        $this->assertDatabaseCount('partners', 8);
-        $this->assertSame(5, Partner::query()->whereNotNull('user_id')->count());
+        $this->assertDatabaseHas('partners', [
+            'partner_code' => 'P-0002',
+            'name' => 'Mahmudul Hasan',
+            'ownership_percentage' => '50.0000',
+            'investment_percentage' => '50.0000',
+        ]);
+        $this->assertDatabaseCount('partners', 2);
+        $this->assertSame(0, Partner::query()->whereNotNull('user_id')->count());
     }
 }

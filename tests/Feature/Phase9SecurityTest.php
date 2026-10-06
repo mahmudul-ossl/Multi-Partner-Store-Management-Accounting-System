@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Reports\ReportCatalog;
+use Database\Seeders\DemoPartnershipSeeder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\File;
@@ -139,7 +140,7 @@ class Phase9SecurityTest extends FinanceTestCase
 
     public function test_seeded_demo_matches_the_spec_and_journals_balance(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
 
         $this->assertGreaterThanOrEqual(5, Partner::query()->count());
         $this->assertLessThanOrEqual(10, Partner::query()->count());

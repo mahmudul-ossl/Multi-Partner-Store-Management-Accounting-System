@@ -10,16 +10,14 @@ use App\Models\Purchase;
 use App\Models\User;
 use App\Services\Approvals\ApprovalService;
 use App\Services\Inventory\CatalogService;
-use App\Services\Inventory\StockAdjustmentService;
 use App\Services\Purchasing\PurchaseReturnService;
 use App\Services\Purchasing\PurchaseService;
 use App\Services\Purchasing\SupplierPaymentService;
 use Illuminate\Database\Seeder;
 
 /**
- * Example leather-goods catalog, opening stock, and one purchase cycle.
- * Documents go through the same services as the screens, so stock movements
- * and journals stay in step.
+ * Example leather-goods catalog and one purchase cycle.
+ * Documents go through the same services as the screens.
  */
 class InventoryExampleSeeder extends Seeder
 {
@@ -31,7 +29,6 @@ class InventoryExampleSeeder extends Seeder
 
         $inventory = User::query()->where('email', 'inventory@mpstore.test')->firstOrFail();
         $accountant = User::query()->where('email', 'accountant@mpstore.test')->firstOrFail();
-        $admin = User::query()->where('email', 'admin@mpstore.test')->firstOrFail();
         $cash = FinancialAccount::query()->where('name', 'Cash')->firstOrFail();
 
         $catalog = app(CatalogService::class);
@@ -57,11 +54,11 @@ class InventoryExampleSeeder extends Seeder
         }
 
         $unitId = $catalog->createUnit($inventory, ['name' => 'Piece', 'abbreviation' => 'pc'])->id;
-        $warehouseId = $catalog->createWarehouse($inventory, [
+        $catalog->createWarehouse($inventory, [
             'name' => 'Main Store',
             'address' => '12 Gulshan Avenue, Dhaka',
             'is_default' => true,
-        ])->id;
+        ]);
 
         $suppliers = [];
 
@@ -106,17 +103,6 @@ class InventoryExampleSeeder extends Seeder
                 'description' => $row['description'],
             ]);
             $products[$row['sku']] = $product;
-
-            $opening = app(StockAdjustmentService::class)->create($inventory, [
-                'kind' => 'opening',
-                'product_id' => $product->id,
-                'warehouse_id' => $warehouseId,
-                'quantity' => $row['opening'],
-                'unit_cost' => $row['opening_cost'],
-                'transaction_date' => '2026-05-01',
-                'reason' => 'Opening stock for '.$row['name'],
-            ]);
-            app(ApprovalService::class)->approve($opening->approvalRequest, $admin, 'Opening stock accepted.');
         }
 
         $approvals = app(ApprovalService::class);
@@ -124,7 +110,6 @@ class InventoryExampleSeeder extends Seeder
 
         $purchase = app(PurchaseService::class)->create($inventory, [
             'supplier_id' => $suppliers['Dhaka Leather House'],
-            'warehouse_id' => $warehouseId,
             'transaction_date' => '2026-05-10',
             'paid_amount' => '1200.00',
             'payment_method' => 'cash',
@@ -162,7 +147,6 @@ class InventoryExampleSeeder extends Seeder
 
         app(PurchaseService::class)->create($inventory, [
             'supplier_id' => $suppliers['Chittagong Hide Co.'],
-            'warehouse_id' => $warehouseId,
             'transaction_date' => '2026-05-18',
             'paid_amount' => '0.00',
             'note' => 'Waiting for the tote delivery.',

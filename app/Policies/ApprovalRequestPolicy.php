@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Enums\ApprovalActionType;
 use App\Enums\PermissionName;
+use App\Enums\RoleName;
 use App\Models\ApprovalRequest;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerTransfer;
@@ -45,7 +46,7 @@ class ApprovalRequestPolicy
 
     public function approve(User $user, ApprovalRequest $request): Response
     {
-        if ((int) $request->requested_by === (int) $user->id) {
+        if ((int) $request->requested_by === (int) $user->id && ! $user->hasRole(RoleName::SuperAdmin->value)) {
             return Response::deny('You cannot approve your own transaction.');
         }
 
@@ -71,7 +72,7 @@ class ApprovalRequestPolicy
 
     public function reject(User $user, ApprovalRequest $request): Response
     {
-        if ((int) $request->requested_by === (int) $user->id) {
+        if ((int) $request->requested_by === (int) $user->id && ! $user->hasRole(RoleName::SuperAdmin->value)) {
             return Response::deny('You cannot reject your own transaction.');
         }
 

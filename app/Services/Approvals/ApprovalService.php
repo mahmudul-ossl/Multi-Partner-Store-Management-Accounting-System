@@ -9,6 +9,7 @@ use App\Enums\ApprovalRequestType;
 use App\Enums\ApprovalStatus;
 use App\Enums\AuditAction;
 use App\Enums\DocumentStatus;
+use App\Enums\RoleName;
 use App\Exceptions\ApprovalStateException;
 use App\Exceptions\DuplicateApprovalException;
 use App\Models\AccountTransfer;
@@ -22,6 +23,7 @@ use App\Models\PurchaseReturn;
 use App\Models\Refund;
 use App\Models\Sale;
 use App\Models\SalesCancellation;
+use App\Models\SalesIncome;
 use App\Models\StockAdjustment;
 use App\Models\SupplierPayment;
 use App\Models\User;
@@ -78,6 +80,18 @@ final class ApprovalService
                 'comment' => $note,
             ]);
 
+            if ($requester->hasRole(RoleName::SuperAdmin->value)) {
+                $request = $this->finalizeApproval(
+                    $request,
+                    $requester,
+                    'Auto-approved for Super Admin.',
+                    completeRemaining: true,
+                );
+                $document->refresh();
+
+                return $request;
+            }
+
             $this->notifier->requested($request);
             DashboardCache::bump();
 
@@ -89,54 +103,11 @@ final class ApprovalService
     {
         return DB::transaction(function () use ($approvalRequest, $actor, $comment): ApprovalRequest {
             $request = $this->lockOpen($approvalRequest);
-            SelfApprovalGuard::assertNotSelf((int) $request->requested_by, (int) $actor->id);
+            SelfApprovalGuard::assertNotSelf((int) $request->requested_by, (int) $actor->id, $actor);
             $this->assertCanDecide($request, $actor);
             $this->assertNotAlreadyApproved($request, $actor);
 
-            $request->actions()->create([
-                'user_id' => $actor->id,
-                'action' => ApprovalActionType::Approved,
-                'comment' => $comment,
-            ]);
-
-            $request->completed_approvals = (int) $request->completed_approvals + 1;
-            $request->current_step = min($request->completed_approvals + 1, (int) $request->required_approvals);
-
-            $document = $this->lockDocument($request);
-
-            if ($request->completed_approvals < $request->required_approvals) {
-                $request->status = ApprovalStatus::PartiallyApproved;
-                $request->save();
-                $this->audit->record(AuditAction::Approved, $request, null, [
-                    'completed_approvals' => $request->completed_approvals,
-                    'required_approvals' => $request->required_approvals,
-                    'comment' => $comment,
-                ], $actor);
-                DashboardCache::bump();
-
-                return $request;
-            }
-
-            $request->status = ApprovalStatus::Approved;
-            $request->approved_at = now();
-            $request->current_step = (int) $request->required_approvals;
-            $request->save();
-
-            $document->status = DocumentStatus::Approved;
-            $document->save();
-
-            $this->postDocument($document, $actor);
-
-            $this->audit->record(AuditAction::Approved, $document, null, [
-                'status' => DocumentStatus::Approved->value,
-                'journal_entry_id' => $document->journal_entry_id,
-            ], $actor);
-
-            $this->notifier->decided($request, 'approved');
-            $this->notifier->settle($request);
-            DashboardCache::bump();
-
-            return $request->fresh(['actions.user', 'reference']);
+            return $this->finalizeApproval($request, $actor, $comment, completeRemaining: false);
         });
     }
 
@@ -146,7 +117,7 @@ final class ApprovalService
             $request = $this->lockOpen($approvalRequest);
             $this->assertCanDecide($request, $actor);
 
-            if ((int) $request->requested_by === (int) $actor->id) {
+            if ((int) $request->requested_by === (int) $actor->id && ! $actor->hasRole(RoleName::SuperAdmin->value)) {
                 throw new AuthorizationException('You cannot reject your own transaction.');
             }
 
@@ -205,6 +176,63 @@ final class ApprovalService
         });
     }
 
+    private function finalizeApproval(
+        ApprovalRequest $request,
+        User $actor,
+        ?string $comment,
+        bool $completeRemaining,
+    ): ApprovalRequest {
+        $request->actions()->create([
+            'user_id' => $actor->id,
+            'action' => ApprovalActionType::Approved,
+            'comment' => $comment,
+        ]);
+
+        $required = (int) $request->required_approvals;
+        $completed = $completeRemaining
+            ? $required
+            : (int) $request->completed_approvals + 1;
+
+        $request->completed_approvals = $completed;
+        $request->current_step = min($completed + 1, $required);
+
+        $document = $this->lockDocument($request);
+
+        if ($completed < $required) {
+            $request->status = ApprovalStatus::PartiallyApproved;
+            $request->save();
+            $this->audit->record(AuditAction::Approved, $request, null, [
+                'completed_approvals' => $request->completed_approvals,
+                'required_approvals' => $request->required_approvals,
+                'comment' => $comment,
+            ], $actor);
+            DashboardCache::bump();
+
+            return $request;
+        }
+
+        $request->status = ApprovalStatus::Approved;
+        $request->approved_at = now();
+        $request->current_step = $required;
+        $request->save();
+
+        $document->status = DocumentStatus::Approved;
+        $document->save();
+
+        $this->postDocument($document, $actor);
+
+        $this->audit->record(AuditAction::Approved, $document, null, [
+            'status' => DocumentStatus::Approved->value,
+            'journal_entry_id' => $document->journal_entry_id,
+        ], $actor);
+
+        $this->notifier->decided($request, 'approved');
+        $this->notifier->settle($request);
+        DashboardCache::bump();
+
+        return $request->fresh(['actions.user', 'reference']);
+    }
+
     private function postDocument(Model $document, User $actor): void
     {
         if ($document instanceof ManualJournal || $document instanceof AccountTransfer) {
@@ -219,7 +247,7 @@ final class ApprovalService
             return;
         }
 
-        if ($document instanceof Sale || $document instanceof Refund || $document instanceof SalesCancellation) {
+        if ($document instanceof SalesIncome || $document instanceof Sale || $document instanceof Refund || $document instanceof SalesCancellation) {
             $this->sales->post($document, $actor);
 
             return;

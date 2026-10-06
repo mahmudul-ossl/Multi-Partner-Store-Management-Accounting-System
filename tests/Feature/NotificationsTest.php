@@ -8,13 +8,16 @@ use App\Enums\PermissionName;
 use App\Enums\RoleName;
 use App\Jobs\DeliverOperationalAlert;
 use App\Models\PartnerWithdrawal;
+use App\Models\Product;
 use App\Models\Purchase;
-use App\Models\Sale;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Notifications\ApprovalActivity;
 use App\Notifications\OperationalAlert;
 use App\Services\Approvals\ApprovalService;
+use App\Services\Purchasing\PurchaseService;
 use App\Support\Money;
+use Database\Seeders\DemoPartnershipSeeder;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -27,19 +30,28 @@ class NotificationsTest extends FinanceTestCase
     {
         config(['queue.default' => 'database']);
 
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
 
-        $sale = Sale::query()->where('reference', 'SAL-00002')->firstOrFail();
-        $purchase = Purchase::query()->where('reference', 'PUR-00001')->firstOrFail();
-        $this->assertSame('830.00', (string) $sale->due_amount);
-        $this->assertSame('0.00', (string) $purchase->due_amount);
+        $inventory = User::query()->where('email', 'inventory@mpstore.test')->firstOrFail();
+        $accountant = User::query()->where('email', 'accountant@mpstore.test')->firstOrFail();
+        $purchase = app(PurchaseService::class)->create($inventory, [
+            'supplier_id' => Supplier::query()->value('id'),
+            'transaction_date' => '2026-06-15',
+            'paid_amount' => '0.00',
+            'items' => [[
+                'product_id' => Product::query()->value('id'),
+                'quantity' => '2',
+                'unit_cost' => '2500.0000',
+            ]],
+        ]);
+        app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Goods arrived.');
+        $purchase->refresh();
+        $this->assertSame('5000.00', (string) $purchase->due_amount);
 
         $queued = $this->queuedOperationalAlerts();
-        $customerJobs = $queued->filter(fn (DeliverOperationalAlert $job): bool => $job->kind === 'customer_due' && $job->subjectId === $sale->id);
         $supplierJobs = $queued->filter(fn (DeliverOperationalAlert $job): bool => $job->kind === 'supplier_due' && $job->subjectId === $purchase->id);
 
-        $this->assertGreaterThan(1, $customerJobs->count());
-        $this->assertGreaterThan(1, $supplierJobs->count());
+        $this->assertGreaterThan(0, $supplierJobs->count());
 
         $exit = Artisan::call('queue:work', [
             'connection' => 'database',
@@ -51,9 +63,9 @@ class NotificationsTest extends FinanceTestCase
         $this->assertSame(0, DB::table('jobs')->count(), Artisan::output());
         $this->assertSame(0, DB::table('failed_jobs')->count());
 
-        $eligible = User::permission(PermissionName::SaleView->value)->where('is_active', true)->count();
-        $alerts = DatabaseNotification::query()->where('alert_key', 'customer_due:'.$sale->id)->get();
-        $amount = Money::of('830.00')->formatted();
+        $eligible = User::permission(PermissionName::PurchaseView->value)->where('is_active', true)->count();
+        $alerts = DatabaseNotification::query()->where('alert_key', 'supplier_due:'.$purchase->id)->get();
+        $amount = Money::of('5000.00')->formatted();
 
         $this->assertGreaterThan(0, $eligible);
         $this->assertCount($eligible, $alerts);
@@ -61,18 +73,10 @@ class NotificationsTest extends FinanceTestCase
 
         foreach ($alerts as $alert) {
             $this->assertNull($alert->read_at);
-            $this->assertSame('customer_due', $alert->data['kind']);
+            $this->assertSame('supplier_due', $alert->data['kind']);
             $this->assertStringContainsString($amount, (string) $alert->data['message']);
-            $this->assertStringContainsString('SAL-00002', (string) $alert->data['message']);
+            $this->assertStringContainsString($purchase->reference, (string) $alert->data['message']);
         }
-
-        $this->assertSame(0, DatabaseNotification::query()->where('alert_key', 'supplier_due:'.$purchase->id)->count());
-        $this->assertFalse(
-            DatabaseNotification::query()
-                ->where('data->kind', 'supplier_due')
-                ->where('data->message', 'like', '%PUR-00001%')
-                ->exists()
-        );
     }
 
     public function test_resolving_an_approval_marks_the_request_read_and_leaves_the_decision_unread(): void
@@ -159,19 +163,19 @@ class NotificationsTest extends FinanceTestCase
     public function test_the_bell_keeps_operational_alerts_beside_a_capped_approval_list(): void
     {
         $admin = $this->userWithRole(RoleName::Admin);
-        $message = 'Jamal Uddin still owes '.Money::of('830.00')->formatted().' on SAL-00002.';
+        $message = 'Chittagong Hide Co. is owed '.Money::of('5000.00')->formatted().' on PUR-00002.';
 
         $admin->notifications()->create([
             'id' => (string) Str::uuid(),
             'type' => OperationalAlert::class,
             'data' => [
-                'kind' => 'customer_due',
+                'kind' => 'supplier_due',
                 'subject_id' => 2,
-                'title' => 'Customer payment due',
+                'title' => 'Supplier payment due',
                 'message' => $message,
-                'url' => '/sales/orders/2',
+                'url' => '/inventory/purchases/2',
             ],
-            'alert_key' => 'customer_due:2',
+            'alert_key' => 'supplier_due:2',
             'created_at' => now()->subHour(),
         ]);
 

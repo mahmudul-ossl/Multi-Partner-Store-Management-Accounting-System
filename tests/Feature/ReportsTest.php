@@ -5,38 +5,31 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AuditAction;
-use App\Enums\CustomerStatus;
 use App\Enums\DocumentStatus;
 use App\Enums\RoleName;
 use App\Models\AuditLog;
-use App\Models\Customer;
 use App\Models\PartnerWithdrawal;
 use App\Models\Product;
-use App\Models\Sale;
+use App\Models\SalesIncome;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Approvals\ApprovalService;
 use App\Services\Inventory\CatalogService;
-use App\Services\Inventory\StockAdjustmentService;
 use App\Services\Purchasing\PurchaseService;
 use App\Services\Purchasing\SupplierPaymentService;
 use App\Services\Reports\MonthlyReport;
-use App\Services\Reports\StockValuation;
-use App\Services\Sales\CustomerPaymentService;
-use App\Services\Sales\SaleReturnService;
-use App\Services\Sales\SaleService;
 use App\Support\EmbeddedFont;
 use App\Support\Money;
+use Database\Seeders\DemoPartnershipSeeder;
 use ZipArchive;
 
 class ReportsTest extends FinanceTestCase
 {
     public function test_sales_report_total_matches_the_ledger_and_exports_download(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
         $admin = User::query()->where('email', 'admin@mpstore.test')->firstOrFail();
-        $reference = (string) Sale::query()->value('reference');
+        $reference = (string) SalesIncome::query()->where('status', DocumentStatus::Approved)->value('reference');
 
         $this->actingAs($admin)
             ->get(route('reports.show', [
@@ -90,9 +83,9 @@ class ReportsTest extends FinanceTestCase
         $this->assertStringNotContainsString('?3,180.00', $body);
         $this->assertStringNotContainsString('?1,450.00', $body);
 
-        $pending = Sale::query()->where('status', DocumentStatus::Pending)->firstOrFail();
+        $pending = SalesIncome::query()->where('status', DocumentStatus::Pending)->firstOrFail();
         $pendingTotal = '0.00';
-        foreach (Sale::query()->where('status', DocumentStatus::Pending)->pluck('total') as $amount) {
+        foreach (SalesIncome::query()->where('status', DocumentStatus::Pending)->pluck('amount') as $amount) {
             $pendingTotal = Money::of($pendingTotal)->add((string) $amount)->amount();
         }
 
@@ -136,35 +129,35 @@ class ReportsTest extends FinanceTestCase
 
     public function test_monthly_report_figures_match_the_ledger(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
         $admin = User::query()->where('email', 'admin@mpstore.test')->firstOrFail();
         $report = app(MonthlyReport::class)->build('2026-01-01', '2026-12-31');
         $figures = collect($report['figures'])->keyBy('key');
 
         $this->assertSame('3180.00', $figures['sales']['amount']);
-        $this->assertSame('1603.64', $figures['cogs']['amount']);
-        $this->assertSame('1576.36', $figures['gross_profit']['amount']);
+        $this->assertSame('2400.00', $figures['cogs']['amount']);
+        $this->assertSame('780.00', $figures['gross_profit']['amount']);
         $this->assertSame('5200.00', $figures['expenses']['amount']);
-        $this->assertSame('-3623.64', $figures['net_profit']['amount']);
+        $this->assertSame('-4420.00', $figures['net_profit']['amount']);
         $this->assertSame('2500.00', $figures['promotion']['amount']);
 
         $this->actingAs($admin)
             ->get(route('reports.show', ['report' => 'monthly', 'from' => '2026-01-01', 'to' => '2026-12-31']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('totals.0.amount', '1576.36')
-                ->where('totals.1.amount', '-3623.64'));
+                ->where('totals.0.amount', '780.00')
+                ->where('totals.1.amount', '-4420.00'));
 
         $token = $admin->createToken('api')->plainTextToken;
         $this->withToken($token)
             ->getJson('/api/v1/reports/monthly?from=2026-01-01&to=2026-12-31')
             ->assertOk()
             ->assertJsonPath('figures.0.amount', '3180.00')
-            ->assertJsonPath('figures.2.amount', '1603.64')
-            ->assertJsonPath('figures.5.amount', '-3623.64');
+            ->assertJsonPath('figures.2.amount', '2400.00')
+            ->assertJsonPath('figures.5.amount', '-4420.00');
     }
 
-    public function test_dashboard_cards_follow_permissions_and_inventory_comes_from_stock(): void
+    public function test_dashboard_cards_follow_permissions(): void
     {
         $inventory = $this->userWithRole(RoleName::InventoryManager);
         [$partnerUser] = $this->linkedPartner();
@@ -174,13 +167,13 @@ class ReportsTest extends FinanceTestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('summary.show_sales', false)
-                ->where('summary.show_inventory', true)
                 ->where('summary.cards', function ($cards): bool {
                     $keys = collect($cards)->pluck('key');
 
-                    return $keys->contains('inventory_value')
-                        && $keys->contains('low_stock')
-                        && $keys->contains('payables')
+                    return $keys->contains('payables')
+                        && ! $keys->contains('inventory_value')
+                        && ! $keys->contains('low_stock')
+                        && ! $keys->contains('receivables')
                         && ! $keys->contains('sales')
                         && ! $keys->contains('cash')
                         && ! $keys->contains('gross_profit');
@@ -194,7 +187,6 @@ class ReportsTest extends FinanceTestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('summary.show_cash', false)
-                ->where('summary.show_inventory', false)
                 ->where('summary.cards', function ($cards): bool {
                     $keys = collect($cards)->pluck('key');
 
@@ -217,49 +209,37 @@ class ReportsTest extends FinanceTestCase
         $this->actingAs($partnerUser)->get(route('reports.show', 'cash'))->assertForbidden();
     }
 
-    public function test_dashboard_inventory_value_matches_the_stock_ledger(): void
+    public function test_dashboard_sales_come_from_posted_income_and_inventory_value_is_absent(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
         $admin = User::query()->where('email', 'admin@mpstore.test')->firstOrFail();
-        $expected = Money::of(app(StockValuation::class)->current())->formatted();
 
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->missing('summary.placeholders')
-                ->where('summary.inventory_value', $expected)
-                ->where('summary.cards', function ($cards) use ($expected): bool {
-                    $card = collect($cards)->firstWhere('key', 'inventory_value');
+                ->missing('summary.inventory_value')
+                ->where('summary.sales', Money::of('3180.00')->formatted())
+                ->where('summary.cards', function ($cards): bool {
+                    $keys = collect($cards)->pluck('key');
+                    $sales = collect($cards)->firstWhere('key', 'sales');
 
-                    return is_array($card) && $card['value'] === $expected;
+                    return ! $keys->contains('inventory_value')
+                        && ! $keys->contains('low_stock')
+                        && ! $keys->contains('receivables')
+                        && is_array($sales)
+                        && $sales['value'] === Money::of('3180.00')->formatted();
                 }));
     }
 
-    public function test_low_stock_and_payment_due_notifications_are_stored(): void
+    public function test_supplier_due_notifications_are_stored(): void
     {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
-        $admin = $this->userWithRole(RoleName::Admin);
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
         $sales = $this->userWithRole(RoleName::SalesManager);
-
-        $opening = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'opening',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '1',
-            'unit_cost' => '80.0000',
-            'transaction_date' => '2026-05-01',
-            'reason' => 'Opening stock.',
-        ]);
-        app(ApprovalService::class)->approve($opening->approvalRequest, $admin, 'Counted.');
-
-        $this->assertTrue($inventory->fresh()->notifications()->where('data->kind', 'low_stock')->exists());
-        $this->assertFalse($sales->fresh()->notifications()->where('data->kind', 'low_stock')->exists());
-        $this->assertTrue(AuditLog::query()->where('action', AuditAction::StockAdjusted)->exists());
 
         $purchase = app(PurchaseService::class)->create($inventory, [
             'supplier_id' => $supplier->id,
-            'warehouse_id' => $warehouse->id,
             'transaction_date' => '2026-05-10',
             'paid_amount' => '0.00',
             'payment_method' => null,
@@ -274,41 +254,15 @@ class ReportsTest extends FinanceTestCase
 
         $this->assertTrue($accountant->fresh()->notifications()->where('data->kind', 'supplier_due')->exists());
         $this->assertFalse($sales->fresh()->notifications()->where('data->kind', 'supplier_due')->exists());
-
-        $customer = Customer::query()->create([
-            'name' => 'Due Customer',
-            'phone' => '01711111111',
-            'status' => CustomerStatus::Active,
-        ]);
-        app(SaleService::class)->create($sales, [
-            'customer_id' => $customer->id,
-            'warehouse_id' => $warehouse->id,
-            'transaction_date' => '2026-06-02',
-            'discount' => '0.00',
-            'delivery' => '0.00',
-            'paid_amount' => '0.00',
-            'payment_method' => null,
-            'financial_account_id' => null,
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => '1',
-                'unit_price' => '180.00',
-            ]],
-        ]);
-
-        $this->assertTrue($sales->fresh()->notifications()->where('data->kind', 'customer_due')->exists());
-        $this->assertFalse($inventory->fresh()->notifications()->where('data->kind', 'customer_due')->exists());
     }
 
-    public function test_due_notifications_refresh_when_payment_or_return_changes_the_balance(): void
+    public function test_due_notifications_refresh_when_payment_changes_the_balance(): void
     {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
-        $sales = $this->userWithRole(RoleName::SalesManager);
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
         $cash = $this->cashAccount();
 
         $purchase = app(PurchaseService::class)->create($inventory, [
             'supplier_id' => $supplier->id,
-            'warehouse_id' => $warehouse->id,
             'transaction_date' => '2026-05-10',
             'paid_amount' => '0.00',
             'payment_method' => null,
@@ -355,78 +309,6 @@ class ReportsTest extends FinanceTestCase
         app(ApprovalService::class)->approve($rest->approvalRequest, $accountant, 'Paid.');
 
         $this->assertFalse($accountant->fresh()->unreadNotifications()->where('data->kind', 'supplier_due')->exists());
-
-        $customer = Customer::query()->create([
-            'name' => 'Due Customer',
-            'phone' => '01711111111',
-            'status' => CustomerStatus::Active,
-        ]);
-        $sale = app(SaleService::class)->create($sales, [
-            'customer_id' => $customer->id,
-            'warehouse_id' => $warehouse->id,
-            'transaction_date' => '2026-06-02',
-            'discount' => '0.00',
-            'delivery' => '0.00',
-            'paid_amount' => '0.00',
-            'payment_method' => null,
-            'financial_account_id' => null,
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => '1',
-                'unit_price' => '180.00',
-            ]],
-        ]);
-
-        $this->assertSame(
-            'Due Customer still owes '.Money::of('180.00')->formatted().' on '.$sale->reference.'.',
-            $this->dueMessage($sales, 'customer_due'),
-        );
-
-        app(CustomerPaymentService::class)->create($sales, [
-            'sale_id' => $sale->id,
-            'financial_account_id' => $cash->id,
-            'payment_method' => 'cash',
-            'amount' => '50.00',
-            'payment_date' => '2026-06-03',
-            'note' => 'Instalment.',
-        ]);
-
-        $this->assertSame('130.00', (string) $sale->fresh()->due_amount);
-        $this->assertSame(
-            'Due Customer still owes '.Money::of('130.00')->formatted().' on '.$sale->reference.'.',
-            $this->dueMessage($sales, 'customer_due'),
-        );
-
-        app(SaleReturnService::class)->create($sales, [
-            'sale_id' => $sale->id,
-            'transaction_date' => '2026-06-04',
-            'note' => 'Returned the wallet.',
-            'items' => [[
-                'sale_item_id' => $sale->items->first()->id,
-                'quantity' => '1',
-            ]],
-        ]);
-
-        $this->assertFalse($sales->fresh()->unreadNotifications()->where('data->kind', 'customer_due')->exists());
-
-        $before = $sales->fresh()->notifications()->where('data->kind', 'customer_due')->count();
-        app(SaleService::class)->create($sales, [
-            'customer_id' => $customer->id,
-            'warehouse_id' => $warehouse->id,
-            'transaction_date' => '2026-06-05',
-            'discount' => '0.00',
-            'delivery' => '0.00',
-            'paid_amount' => '180.00',
-            'payment_method' => 'cash',
-            'financial_account_id' => $cash->id,
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => '1',
-                'unit_price' => '180.00',
-            ]],
-        ]);
-
-        $this->assertSame($before, $sales->fresh()->notifications()->where('data->kind', 'customer_due')->count());
     }
 
     public function test_approve_and_reject_write_audit_entries(): void
@@ -509,7 +391,7 @@ class ReportsTest extends FinanceTestCase
     }
 
     /**
-     * @return array{0: User, 1: User, 2: Product, 3: Warehouse, 4: Supplier}
+     * @return array{0: User, 1: User, 2: Product, 3: Supplier}
      */
     private function catalog(): array
     {
@@ -518,7 +400,6 @@ class ReportsTest extends FinanceTestCase
         $catalog = app(CatalogService::class);
         $category = $catalog->createCategory($inventory, ['name' => 'Wallets']);
         $unit = $catalog->createUnit($inventory, ['name' => 'Piece', 'abbreviation' => 'pc']);
-        $warehouse = $catalog->createWarehouse($inventory, ['name' => 'Main Store', 'address' => 'Dhaka']);
         $supplier = $catalog->createSupplier($inventory, ['name' => 'Hide Co']);
         $product = $catalog->createProduct($inventory, [
             'sku' => 'WAL-TEST',
@@ -536,6 +417,6 @@ class ReportsTest extends FinanceTestCase
             'description' => 'Test product',
         ]);
 
-        return [$inventory, $accountant, $product, $warehouse, $supplier];
+        return [$inventory, $accountant, $product, $supplier];
     }
 }

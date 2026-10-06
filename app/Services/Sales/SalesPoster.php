@@ -10,6 +10,7 @@ use App\Exceptions\ApprovalStateException;
 use App\Models\Refund;
 use App\Models\Sale;
 use App\Models\SalesCancellation;
+use App\Models\SalesIncome;
 use App\Models\User;
 use App\Services\Inventory\InventoryService;
 use App\Services\Ledger\JournalEntryService;
@@ -35,11 +36,46 @@ final class SalesPoster
     public function post(Model $document, User $actor): void
     {
         match (true) {
+            $document instanceof SalesIncome => $this->income($document, $actor),
             $document instanceof Sale => $this->completion->complete($document, $actor),
             $document instanceof Refund => $this->refund($document, $actor),
             $document instanceof SalesCancellation => $this->cancel($document, $actor),
             default => throw new ApprovalStateException('This approval type does not post a sale.'),
         };
+    }
+
+    private function income(SalesIncome $document, User $actor): void
+    {
+        DB::transaction(function () use ($document, $actor): void {
+            $document->load('financialAccount.chartOfAccount');
+            $account = $document->financialAccount;
+
+            if ($account === null) {
+                throw new ApprovalStateException('A sale needs a financial account.');
+            }
+
+            $amount = Money::of((string) $document->amount)->amount();
+            $description = 'Sale '.$document->reference.' · '.$document->source->label();
+
+            $entry = $this->journal->post($document, $actor, $document->transaction_date->toDateString(), $description, [
+                [
+                    'account_code' => $account->chartOfAccount->code,
+                    'financial_account_id' => $account->id,
+                    'debit' => $amount,
+                    'credit' => '0.00',
+                    'description' => $description,
+                ],
+                [
+                    'account_code' => ChartAccountCode::ProductSales,
+                    'debit' => '0.00',
+                    'credit' => $amount,
+                    'description' => $description,
+                ],
+            ]);
+
+            $document->journal_entry_id = $entry->id;
+            $document->save();
+        });
     }
 
     private function refund(Refund $document, User $actor): void

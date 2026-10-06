@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Enums\DocumentStatus;
 use App\Enums\RoleName;
-use App\Exceptions\SelfApprovalException;
 use App\Models\ChartOfAccount;
 use App\Models\FinancialAccount;
 use App\Models\JournalEntryLine;
@@ -15,95 +14,81 @@ use App\Models\Purchase;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Accounting\FinancialAccountService;
 use App\Services\Approvals\ApprovalService;
 use App\Services\Inventory\CatalogService;
-use App\Services\Inventory\InventoryService;
-use App\Services\Inventory\StockAdjustmentService;
-use App\Services\Inventory\StockQuery;
 use App\Services\Purchasing\PurchaseReturnService;
 use App\Services\Purchasing\PurchaseService;
 use App\Services\Purchasing\SupplierPaymentService;
 use App\Support\ChartAccountCode;
 use App\Support\Money;
-use Illuminate\Auth\Access\AuthorizationException as LaravelAuthorizationException;
 use Illuminate\Support\Collection;
 
 class InventoryTest extends FinanceTestCase
 {
-    public function test_stock_increases_only_after_purchase_approval(): void
+    public function test_purchase_posts_cogs_without_stock_movements(): void
     {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
-        $inventoryService = app(InventoryService::class);
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
 
-        $purchase = $this->purchase($inventory, $supplier, $warehouse, $product, '6', '100.0000', '0.00');
+        $purchase = $this->purchase($inventory, $supplier, $product, '6', '100.0000', '0.00');
 
-        $this->assertSame('0.000', $inventoryService->onHand($product));
         $this->assertSame(0, StockMovement::query()->count());
         $this->assertNull($purchase->journal_entry_id);
 
         app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
 
-        $product->refresh();
-        $purchase->refresh();
+        $purchase->refresh()->load('journalEntry.lines.account');
         $this->assertSame(DocumentStatus::Approved, $purchase->status);
-        $this->assertSame('6.000', $inventoryService->onHand($product));
+        $this->assertSame(0, StockMovement::query()->count());
         $this->assertNotNull($purchase->journal_entry_id);
+        $this->assertSame('600.00', $this->side($purchase->journalEntry->lines, ChartAccountCode::Cogs, 'debit'));
+        $this->assertSame('600.00', $this->side($purchase->journalEntry->lines, ChartAccountCode::AccountsPayable, 'credit'));
     }
 
-    public function test_adjustment_changes_stock_only_after_approval(): void
+    public function test_super_admin_can_edit_an_approved_purchase_and_repost_the_journal(): void
     {
-        [$inventory, , $product, $warehouse] = $this->catalog();
-        $admin = $this->userWithRole(RoleName::Admin);
-        $inventoryService = app(InventoryService::class);
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
+        $super = $this->userWithRole(RoleName::SuperAdmin);
 
-        $adjustment = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'adjustment',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '3',
-            'direction' => 'increase',
-            'unit_cost' => '50.0000',
-            'transaction_date' => '2026-05-02',
-            'reason' => 'Found in the back room.',
-        ]);
+        $purchase = $this->purchase($inventory, $supplier, $product, '6', '100.0000', '0.00');
+        app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
 
-        $this->assertSame('0.000', $inventoryService->onHand($product));
-        $this->assertNull($adjustment->journal_entry_id);
+        $payload = [
+            'supplier_id' => $supplier->id,
+            'transaction_date' => '2026-05-10',
+            'paid_amount' => '0.00',
+            'note' => 'Corrected quantity',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => '10',
+                'unit_cost' => '100.0000',
+            ]],
+        ];
 
-        app(ApprovalService::class)->approve($adjustment->approvalRequest, $admin, 'Counted.');
+        $this->actingAs($inventory)
+            ->put(route('inventory.purchases.update', $purchase), $payload)
+            ->assertForbidden();
 
-        $adjustment->refresh();
-        $this->assertSame('3.000', $inventoryService->onHand($product->fresh()));
-        $this->assertNotNull($adjustment->journal_entry_id);
+        $this->actingAs($super)
+            ->put(route('inventory.purchases.update', $purchase), $payload)
+            ->assertRedirect(route('inventory.purchases.show', $purchase));
+
+        $purchase->refresh()->load('items', 'journalEntry.lines.account');
+        $this->assertSame(DocumentStatus::Approved, $purchase->status);
+        $this->assertSame('1000.00', (string) $purchase->total);
+        $this->assertSame('10.000', (string) $purchase->items->first()->quantity);
+        $this->assertSame(0, StockMovement::query()->count());
+        $this->assertNotNull($purchase->journal_entry_id);
+        $this->assertSame('Corrected quantity', $purchase->note);
+        $this->assertSame('1000.00', $this->side($purchase->journalEntry->lines, ChartAccountCode::Cogs, 'debit'));
     }
 
-    public function test_requester_cannot_approve_their_own_stock_adjustment(): void
+    public function test_purchase_journal_is_balanced_for_partial_payment(): void
     {
-        [$inventory, , $product, $warehouse] = $this->catalog();
-
-        $adjustment = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'damage',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '1',
-            'transaction_date' => '2026-05-03',
-            'reason' => 'Water damage.',
-        ]);
-
-        $this->expectException(SelfApprovalException::class);
-        $this->expectExceptionMessage('You cannot approve your own transaction.');
-
-        app(ApprovalService::class)->approve($adjustment->approvalRequest, $inventory, 'Trying to approve my own.');
-    }
-
-    public function test_purchase_journal_is_balanced_and_matches_stock(): void
-    {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
         $drawer = $this->drawer();
 
-        $purchase = $this->purchase($inventory, $supplier, $warehouse, $product, '4', '250.0000', '400.00', $drawer);
+        $purchase = $this->purchase($inventory, $supplier, $product, '4', '250.0000', '400.00', $drawer);
         app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
 
         $purchase->refresh()->load('journalEntry.lines.account');
@@ -111,21 +96,21 @@ class InventoryTest extends FinanceTestCase
         $this->assertSame('1000.00', (string) $purchase->total);
         $this->assertSame('400.00', (string) $purchase->paid_amount);
         $this->assertSame('600.00', (string) $purchase->due_amount);
-        $this->assertSame('4.000', app(InventoryService::class)->onHand($product->fresh()));
 
         $lines = $purchase->journalEntry->lines;
-        $this->assertSame('1000.00', $this->side($lines, ChartAccountCode::Inventory, 'debit'));
+        $this->assertSame('1000.00', $this->side($lines, ChartAccountCode::Cogs, 'debit'));
         $this->assertSame('400.00', $this->side($lines, '1000', 'credit'));
         $this->assertSame('600.00', $this->side($lines, ChartAccountCode::AccountsPayable, 'credit'));
+        $this->assertSame('0.00', $this->side($lines, ChartAccountCode::Inventory, 'debit'));
     }
 
     public function test_supplier_payment_reduces_due_payable_and_cash(): void
     {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
         $drawer = $this->drawer();
         $before = (string) $drawer->current_balance;
 
-        $purchase = $this->purchase($inventory, $supplier, $warehouse, $product, '4', '250.0000', '400.00', $drawer);
+        $purchase = $this->purchase($inventory, $supplier, $product, '4', '250.0000', '400.00', $drawer);
         app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
 
         $payment = app(SupplierPaymentService::class)->create($inventory, [
@@ -149,114 +134,48 @@ class InventoryTest extends FinanceTestCase
         $this->assertSame('650.00', (string) $purchase->paid_amount);
         $this->assertSame(Money::of($before)->sub('650.00')->amount(), (string) $drawer->current_balance);
         $this->assertSame('350.00', $this->payableBalance($supplier->id));
-        $this->assertSame('350.00', app(StockQuery::class)->supplierDues()[0]['due_amount']);
     }
 
-    public function test_purchase_return_reduces_stock_and_recomputes_weighted_average(): void
+    public function test_purchase_return_reverses_cogs_and_payable_without_stock(): void
     {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
 
-        $first = $this->purchase($inventory, $supplier, $warehouse, $product, '10', '100.0000', '0.00');
-        app(ApprovalService::class)->approve($first->approvalRequest, $accountant, 'First lot.');
-
-        $second = $this->purchase($inventory, $supplier, $warehouse, $product, '10', '200.0000', '0.00');
-        app(ApprovalService::class)->approve($second->approvalRequest, $accountant, 'Second lot.');
-
-        $product->refresh();
-        $this->assertSame('20.000', app(InventoryService::class)->onHand($product));
-        $this->assertSame('150.0000', (string) $product->average_cost);
+        $purchase = $this->purchase($inventory, $supplier, $product, '10', '200.0000', '0.00');
+        app(ApprovalService::class)->approve($purchase->approvalRequest, $accountant, 'Received.');
 
         $return = app(PurchaseReturnService::class)->create($inventory, [
-            'purchase_id' => $second->id,
+            'purchase_id' => $purchase->id,
             'transaction_date' => '2026-05-12',
-            'note' => 'Return the second lot.',
+            'note' => 'Return the lot.',
             'items' => [[
-                'purchase_item_id' => $second->items->first()->id,
+                'purchase_item_id' => $purchase->items->first()->id,
                 'quantity' => '10',
             ]],
         ]);
 
-        $this->assertSame('20.000', app(InventoryService::class)->onHand($product->fresh()));
+        $this->assertSame(0, StockMovement::query()->count());
 
         app(ApprovalService::class)->approve($return->approvalRequest, $accountant, 'Returned.');
 
-        $product->refresh();
-        $second->refresh();
-        $this->assertSame('10.000', app(InventoryService::class)->onHand($product));
-        $this->assertSame('100.0000', (string) $product->average_cost);
-        $this->assertSame('0.00', (string) $second->due_amount);
+        $purchase->refresh();
+        $return->refresh()->load('journalEntry.lines.account');
+        $this->assertSame('0.00', (string) $purchase->due_amount);
+        $this->assertSame(0, StockMovement::query()->count());
+        $this->assertSame('2000.00', $this->side($return->journalEntry->lines, ChartAccountCode::Cogs, 'credit'));
+        $this->assertSame('2000.00', $this->side($return->journalEntry->lines, ChartAccountCode::AccountsPayable, 'debit'));
     }
 
-    public function test_low_stock_includes_on_hand_at_or_below_reorder_level(): void
+    public function test_rejected_purchase_does_not_change_the_ledger(): void
     {
-        [$inventory, , $product, $warehouse] = $this->catalog('5');
-        $admin = $this->userWithRole(RoleName::Admin);
-        $query = app(StockQuery::class);
+        [$inventory, $accountant, $product, $supplier] = $this->catalog();
 
-        $this->assertTrue(app(InventoryService::class)->isLow($product));
-        $this->assertSame([$product->id], array_column($query->lowStock(), 'id'));
-
-        $opening = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'opening',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '5',
-            'unit_cost' => '10.0000',
-            'transaction_date' => '2026-05-01',
-            'reason' => 'Opening at the reorder level.',
-        ]);
-        app(ApprovalService::class)->approve($opening->approvalRequest, $admin, 'Opened.');
-
-        $this->assertTrue(app(InventoryService::class)->isLow($product->fresh()));
-
-        $extra = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'adjustment',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '1',
-            'direction' => 'increase',
-            'unit_cost' => '10.0000',
-            'transaction_date' => '2026-05-02',
-            'reason' => 'One more piece.',
-        ]);
-        app(ApprovalService::class)->approve($extra->approvalRequest, $admin, 'Added.');
-
-        $this->assertFalse(app(InventoryService::class)->isLow($product->fresh()));
-        $this->assertSame([], $query->lowStock());
-    }
-
-    public function test_rejected_purchase_does_not_change_stock_or_the_ledger(): void
-    {
-        [$inventory, $accountant, $product, $warehouse, $supplier] = $this->catalog();
-
-        $purchase = $this->purchase($inventory, $supplier, $warehouse, $product, '2', '80.0000', '0.00');
+        $purchase = $this->purchase($inventory, $supplier, $product, '2', '80.0000', '0.00');
         app(ApprovalService::class)->reject($purchase->approvalRequest, $accountant, 'Wrong goods.');
 
         $purchase->refresh();
         $this->assertSame(DocumentStatus::Rejected, $purchase->status);
         $this->assertNull($purchase->journal_entry_id);
         $this->assertSame(0, StockMovement::query()->count());
-        $this->assertSame('0.000', app(InventoryService::class)->onHand($product));
-    }
-
-    public function test_accountant_cannot_approve_a_stock_adjustment(): void
-    {
-        [$inventory, $accountant, $product, $warehouse] = $this->catalog();
-
-        $adjustment = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'opening',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '2',
-            'unit_cost' => '10.0000',
-            'transaction_date' => '2026-05-01',
-            'reason' => 'Opening.',
-        ]);
-
-        $this->expectException(LaravelAuthorizationException::class);
-        $this->expectExceptionMessage('You do not have permission to decide this request.');
-
-        app(ApprovalService::class)->approve($adjustment->approvalRequest, $accountant, 'Not my permission.');
     }
 
     public function test_inventory_permissions_gate_the_screens(): void
@@ -269,22 +188,9 @@ class InventoryTest extends FinanceTestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Inventory/Products'));
 
-        $this->actingAs($viewer)->get(route('inventory.stock.index'))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Inventory/Stock'));
-
-        $this->actingAs($viewer)->get(route('inventory.stock.movements'))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Inventory/Movements'));
-
-        $this->actingAs($viewer)->get(route('inventory.stock.low'))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Inventory/LowStock'));
-
         $this->actingAs($viewer)->get(route('inventory.suppliers.index'))->assertForbidden();
         $this->actingAs($viewer)->post(route('inventory.products.store'), $this->productPayload($product))->assertForbidden();
         $this->actingAs($partner)->get(route('inventory.products.index'))->assertForbidden();
-        $this->actingAs($partner)->get(route('inventory.stock.index'))->assertForbidden();
 
         $this->actingAs($inventory)->post(route('inventory.products.store'), [
             'sku' => 'WAL-NEW',
@@ -304,16 +210,15 @@ class InventoryTest extends FinanceTestCase
     }
 
     /**
-     * @return array{0: User, 1: User, 2: Product, 3: Warehouse, 4: Supplier}
+     * @return array{0: User, 1: User, 2: Product, 3: Supplier}
      */
-    private function catalog(string $reorder = '2'): array
+    private function catalog(): array
     {
         $inventory = $this->userWithRole(RoleName::InventoryManager);
         $accountant = $this->userWithRole(RoleName::Accountant);
         $catalog = app(CatalogService::class);
         $category = $catalog->createCategory($inventory, ['name' => 'Wallets']);
         $unit = $catalog->createUnit($inventory, ['name' => 'Piece', 'abbreviation' => 'pc']);
-        $warehouse = $catalog->createWarehouse($inventory, ['name' => 'Main Store', 'address' => 'Dhaka']);
         $supplier = $catalog->createSupplier($inventory, ['name' => 'Hide Co']);
         $product = $catalog->createProduct($inventory, [
             'sku' => 'WAL-TEST',
@@ -326,18 +231,17 @@ class InventoryTest extends FinanceTestCase
             'selling_price' => '180.00',
             'wholesale_price' => '140.00',
             'minimum_stock' => '1',
-            'reorder_level' => $reorder,
+            'reorder_level' => '2',
             'status' => 'active',
             'description' => 'Test product',
         ]);
 
-        return [$inventory, $accountant, $product, $warehouse, $supplier];
+        return [$inventory, $accountant, $product, $supplier];
     }
 
     private function purchase(
         User $actor,
         Supplier $supplier,
-        Warehouse $warehouse,
         Product $product,
         string $quantity,
         string $unitCost,
@@ -346,7 +250,6 @@ class InventoryTest extends FinanceTestCase
     ): Purchase {
         return app(PurchaseService::class)->create($actor, [
             'supplier_id' => $supplier->id,
-            'warehouse_id' => $warehouse->id,
             'transaction_date' => '2026-05-10',
             'paid_amount' => $paid,
             'payment_method' => Money::of($paid)->isZero() ? null : 'cash',

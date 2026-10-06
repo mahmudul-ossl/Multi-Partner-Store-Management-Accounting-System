@@ -7,29 +7,23 @@ namespace App\Services\Reports;
 use App\Enums\DocumentStatus;
 use App\Enums\FinancialAccountType;
 use App\Models\ChartOfAccount;
-use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\FinancialAccount;
 use App\Models\JournalEntryLine;
 use App\Models\Partner;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerWithdrawal;
-use App\Models\Product;
 use App\Models\Promotion;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
-use App\Models\Sale;
-use App\Models\SaleItem;
-use App\Models\StockMovement;
+use App\Models\SalesIncome;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Accounting\FinancialStatementService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Finance\PartnerStatementService;
-use App\Services\Inventory\InventoryService;
 use App\Services\PartnerDirectory;
 use App\Support\ChartAccountCode;
-use App\Support\Costing;
 use App\Support\Format;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -47,8 +41,6 @@ final class ReportTable
         private readonly MonthlyReport $monthly,
         private readonly PartnerStatementService $partnerStatements,
         private readonly PartnerDirectory $partners,
-        private readonly InventoryService $inventory,
-        private readonly StockValuation $stock,
     ) {}
 
     /**
@@ -60,9 +52,6 @@ final class ReportTable
         $built = match ($key) {
             'sales' => $this->sales($filters),
             'purchases' => $this->purchases($filters),
-            'product-sales' => $this->productSales($filters),
-            'stock' => $this->stock($filters),
-            'stock-movements' => $this->movements($filters),
             'investments' => $this->investments($actor, $filters),
             'withdrawals' => $this->withdrawals($actor, $filters),
             'partner-statement' => $this->partnerStatement($actor, $filters),
@@ -71,7 +60,6 @@ final class ReportTable
             'expenses' => $this->expenses($filters),
             'cash' => $this->accounts(FinancialAccountType::Cash, $filters),
             'bank' => $this->accounts(FinancialAccountType::Bank, $filters),
-            'receivables' => $this->receivables($filters),
             'payables' => $this->payables($filters),
             'profit-loss' => $this->profitAndLoss($filters),
             'balance-sheet' => $this->balanceSheet($filters),
@@ -91,26 +79,24 @@ final class ReportTable
     private function sales(array $filters): array
     {
         $status = $this->saleStatus($filters);
-        $query = Sale::query()->with('customer')->orderByDesc('transaction_date');
+        $query = SalesIncome::query()->orderByDesc('transaction_date');
 
         if ($status !== 'all') {
             $query->where('status', $status);
         }
 
-        $rows = $query->get()->map(fn (Sale $sale): array => $this->row([
-            'date' => Format::date($sale->transaction_date),
-            'reference' => $sale->reference,
-            'customer' => $sale->customer?->name ?? '—',
-            'total' => Money::of((string) $sale->total)->formatted(),
-            'due' => Money::of((string) $sale->due_amount)->formatted(),
-            'status' => $sale->status->label(),
-        ], $sale->transaction_date->toDateString(), [
-            'total' => (string) $sale->total,
-            'due' => (string) $sale->due_amount,
+        $rows = $query->get()->map(fn (SalesIncome $income): array => $this->row([
+            'date' => Format::date($income->transaction_date),
+            'reference' => $income->reference,
+            'source' => $income->source->label(),
+            'amount' => Money::of((string) $income->amount)->formatted(),
+            'status' => $income->status->label(),
+        ], $income->transaction_date->toDateString(), [
+            'amount' => (string) $income->amount,
         ]))->all();
 
         $pending = '0.00';
-        $pendingSales = Sale::query()->where('status', DocumentStatus::Pending->value);
+        $pendingSales = SalesIncome::query()->where('status', DocumentStatus::Pending->value);
         $from = $this->from($filters);
         $to = $this->to($filters);
 
@@ -122,12 +108,12 @@ final class ReportTable
             $pendingSales->whereDate('transaction_date', '<=', $to);
         }
 
-        foreach ($pendingSales->pluck('total') as $amount) {
+        foreach ($pendingSales->pluck('amount') as $amount) {
             $pending = Money::of($pending)->add((string) $amount)->amount();
         }
 
         return [
-            'columns' => $this->columns(['date' => 'Date', 'reference' => 'Reference', 'customer' => 'Customer', 'total' => 'Total', 'due' => 'Due', 'status' => 'Status']),
+            'columns' => $this->columns(['date' => 'Date', 'reference' => 'Reference', 'source' => 'Source', 'amount' => 'Amount', 'status' => 'Status']),
             'rows' => $rows,
             'totals' => [
                 $this->total('Completed sales (ledger)', $this->ledger->net(ChartAccountCode::ProductSales, $from, $to, true)),
@@ -156,115 +142,7 @@ final class ReportTable
         return [
             'columns' => $this->columns(['date' => 'Date', 'reference' => 'Reference', 'supplier' => 'Supplier', 'total' => 'Total', 'due' => 'Due', 'status' => 'Status']),
             'rows' => $rows,
-            'totals' => [$this->total('Ledger purchases', $this->ledger->sourceNet(ChartAccountCode::Inventory, [Purchase::class, PurchaseReturn::class], $this->from($filters), $this->to($filters), false))],
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return array{columns: list<array{key: string, label: string}>, rows: list<array<string, mixed>>, totals: list<array{label: string, amount: string, formatted: string}>}
-     */
-    private function productSales(array $filters): array
-    {
-        $from = $this->from($filters);
-        $to = $this->to($filters);
-        $grouped = [];
-
-        $items = SaleItem::query()->with('product', 'sale')->whereHas('sale', function ($query) use ($from, $to): void {
-            $query->where('status', DocumentStatus::Completed->value);
-            if ($from !== null) {
-                $query->whereDate('transaction_date', '>=', $from);
-            }
-            if ($to !== null) {
-                $query->whereDate('transaction_date', '<=', $to);
-            }
-        })->get();
-
-        foreach ($items as $item) {
-            $id = (int) $item->product_id;
-            if (! isset($grouped[$id])) {
-                $grouped[$id] = ['name' => $item->product?->name ?? '—', 'sku' => $item->product?->sku ?? '—', 'quantity' => '0.000', 'amount' => '0.00'];
-            }
-            $grouped[$id]['quantity'] = bcadd($grouped[$id]['quantity'], Costing::quantity((string) $item->quantity), 3);
-            $grouped[$id]['amount'] = Money::of($grouped[$id]['amount'])->add((string) $item->net_amount)->amount();
-        }
-
-        $rows = [];
-        foreach ($grouped as $row) {
-            $rows[] = $this->row([
-                'sku' => $row['sku'],
-                'product' => $row['name'],
-                'quantity' => $row['quantity'],
-                'amount' => Money::of($row['amount'])->formatted(),
-            ], null, ['quantity' => $row['quantity'], 'amount' => $row['amount']]);
-        }
-
-        return [
-            'columns' => $this->columns(['sku' => 'SKU', 'product' => 'Product', 'quantity' => 'Quantity', 'amount' => 'Net amount']),
-            'rows' => $rows,
-            'totals' => [$this->total('Ledger product sales', $this->ledger->net(ChartAccountCode::ProductSales, $from, $to, true))],
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return array{columns: list<array{key: string, label: string}>, rows: list<array<string, mixed>>, totals: list<array{label: string, amount: string, formatted: string}>}
-     */
-    private function stock(array $filters): array
-    {
-        $asOf = $this->to($filters);
-        $rows = [];
-        $total = '0.00';
-
-        foreach (Product::query()->orderBy('name')->get() as $product) {
-            if ($asOf === null) {
-                $quantity = $this->inventory->onHand($product);
-                $average = Costing::cost((string) $product->average_cost);
-            } else {
-                $position = $this->stock->position($product, $asOf);
-                $quantity = $position['quantity'];
-                $average = $position['average'];
-            }
-            $value = Costing::lineTotal($quantity, $average);
-            $total = Money::of($total)->add($value)->amount();
-            $rows[] = $this->row([
-                'sku' => $product->sku,
-                'product' => $product->name,
-                'on_hand' => $quantity,
-                'average_cost' => $average,
-                'value' => Money::of($value)->formatted(),
-            ], null, ['on_hand' => $quantity, 'value' => $value]);
-        }
-
-        return [
-            'columns' => $this->columns(['sku' => 'SKU', 'product' => 'Product', 'on_hand' => 'On hand', 'average_cost' => 'Average cost', 'value' => 'Value']),
-            'rows' => $rows,
-            'totals' => [$this->total('Stock value', $total)],
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return array{columns: list<array{key: string, label: string}>, rows: list<array<string, mixed>>, totals: list<array{label: string, amount: string, formatted: string}>}
-     */
-    private function movements(array $filters): array
-    {
-        $rows = StockMovement::query()->with('product', 'warehouse')->orderByDesc('moved_on')->orderByDesc('id')->get()
-            ->map(fn (StockMovement $movement): array => $this->row([
-                'date' => Format::date($movement->moved_on),
-                'product' => $movement->product?->name ?? '—',
-                'warehouse' => $movement->warehouse?->name ?? '—',
-                'type' => $movement->movement_type->label(),
-                'quantity' => Costing::quantity((string) $movement->quantity),
-                'unit_cost' => Costing::cost((string) $movement->unit_cost),
-            ], $movement->moved_on->toDateString(), [
-                'quantity' => Costing::quantity((string) $movement->quantity),
-            ]))->all();
-
-        return [
-            'columns' => $this->columns(['date' => 'Date', 'product' => 'Product', 'warehouse' => 'Warehouse', 'type' => 'Type', 'quantity' => 'Quantity', 'unit_cost' => 'Unit cost']),
-            'rows' => $rows,
-            'totals' => [],
+            'totals' => [$this->total('Ledger purchases', $this->ledger->sourceNet(ChartAccountCode::Cogs, [Purchase::class, PurchaseReturn::class], $this->from($filters), $this->to($filters), false))],
         ];
     }
 
@@ -462,38 +340,6 @@ final class ReportTable
             'columns' => $this->columns(['account' => 'Account', 'balance' => 'Ledger balance']),
             'rows' => $rows,
             'totals' => [$this->total('Total', $total)],
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return array{columns: list<array{key: string, label: string}>, rows: list<array<string, mixed>>, totals: list<array{label: string, amount: string, formatted: string}>}
-     */
-    private function receivables(array $filters): array
-    {
-        $rows = [];
-        foreach (Customer::query()->orderBy('name')->get() as $customer) {
-            $due = '0.00';
-            $sales = Sale::query()->where('customer_id', $customer->id)->where('status', DocumentStatus::Completed);
-            if ($this->to($filters) !== null) {
-                $sales->whereDate('transaction_date', '<=', $this->to($filters));
-            }
-            foreach ($sales->pluck('due_amount') as $amount) {
-                $due = Money::of($due)->add((string) $amount)->amount();
-            }
-            if (Money::of($due)->isZero()) {
-                continue;
-            }
-            $rows[] = $this->row([
-                'customer' => $customer->name,
-                'due' => Money::of($due)->formatted(),
-            ], null, ['due' => $due]);
-        }
-
-        return [
-            'columns' => $this->columns(['customer' => 'Customer', 'due' => 'Due']),
-            'rows' => $rows,
-            'totals' => [$this->total('Ledger receivables', $this->ledger->balanceAsOf(ChartAccountCode::AccountsReceivable, $this->to($filters) ?? now()->toDateString(), true))],
         ];
     }
 
@@ -831,8 +677,12 @@ final class ReportTable
     private function saleStatus(array $filters): string
     {
         $status = (string) ($filters['status'] ?? '');
-        $allowed = ['completed', 'pending', 'cancelled', 'all'];
+        $allowed = ['approved', 'completed', 'pending', 'cancelled', 'all'];
 
-        return in_array($status, $allowed, true) ? $status : DocumentStatus::Completed->value;
+        if (! in_array($status, $allowed, true)) {
+            return DocumentStatus::Approved->value;
+        }
+
+        return $status === 'completed' ? DocumentStatus::Approved->value : $status;
     }
 }

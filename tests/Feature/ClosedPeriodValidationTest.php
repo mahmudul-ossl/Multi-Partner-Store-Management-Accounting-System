@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Enums\CustomerStatus;
 use App\Enums\DocumentStatus;
 use App\Enums\RoleName;
 use App\Models\ChartOfAccount;
-use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\FinancialAccount;
 use App\Models\Partner;
@@ -16,9 +14,7 @@ use App\Services\Accounting\PeriodService;
 use App\Services\Approvals\ApprovalService;
 use App\Services\Finance\InvestmentService;
 use App\Services\Inventory\CatalogService;
-use App\Services\Inventory\StockAdjustmentService;
 use App\Services\Purchasing\PurchaseService;
-use App\Services\Sales\SaleService;
 use App\Services\Spending\PromotionService;
 use App\Support\ChartAccountCode;
 use Illuminate\Log\Events\MessageLogged;
@@ -33,7 +29,6 @@ class ClosedPeriodValidationTest extends FinanceTestCase
         $catalog = app(CatalogService::class);
         $category = $catalog->createCategory($admin, ['name' => 'Wallets']);
         $unit = $catalog->createUnit($admin, ['name' => 'Piece', 'abbreviation' => 'pc']);
-        $warehouse = $catalog->createWarehouse($admin, ['name' => 'Main Store', 'address' => 'Dhaka']);
         $product = $catalog->createProduct($admin, [
             'sku' => 'WAL-CLOSE',
             'barcode' => '8901000000991',
@@ -48,39 +43,8 @@ class ClosedPeriodValidationTest extends FinanceTestCase
             'status' => 'active',
         ]);
         $supplier = $catalog->createSupplier($admin, ['name' => 'City Paper', 'phone' => '01711111111']);
-        $customer = Customer::query()->create([
-            'name' => 'Test Customer',
-            'phone' => '01700000000',
-            'status' => CustomerStatus::Active,
-        ]);
-        $inventory = $this->userWithRole(RoleName::InventoryManager);
-        $opening = app(StockAdjustmentService::class)->create($inventory, [
-            'kind' => 'opening',
-            'product_id' => $product->id,
-            'warehouse_id' => $warehouse->id,
-            'quantity' => '5',
-            'unit_cost' => '100.0000',
-            'transaction_date' => '2026-07-01',
-            'reason' => 'Opening stock.',
-        ]);
-        app(ApprovalService::class)->approve($opening->approvalRequest, $admin, 'Counted.');
-
-        $sale = app(SaleService::class)->create($admin, [
-            'customer_id' => $customer->id,
-            'warehouse_id' => $warehouse->id,
-            'transaction_date' => '2026-07-02',
-            'discount' => '0.00',
-            'delivery' => '0.00',
-            'paid_amount' => '0.00',
-            'items' => [[
-                'product_id' => $product->id,
-                'quantity' => '1',
-                'unit_price' => '180.00',
-            ]],
-        ]);
         $purchase = app(PurchaseService::class)->create($admin, [
             'supplier_id' => $supplier->id,
-            'warehouse_id' => $warehouse->id,
             'transaction_date' => '2026-07-02',
             'paid_amount' => '0.00',
             'items' => [[
@@ -100,7 +64,6 @@ class ClosedPeriodValidationTest extends FinanceTestCase
         ]);
 
         app(PeriodService::class)->close($admin, '2026-06-30', 'June close');
-        $sale->load('items');
         $purchase->load('items');
 
         $partner = Partner::factory()->create(['ownership_percentage' => '100.0000', 'investment_percentage' => '100.0000']);
@@ -133,15 +96,10 @@ class ClosedPeriodValidationTest extends FinanceTestCase
                 ],
             ], 'entry_date'],
             ['accounting.accounts.store', ['name' => 'Side drawer', 'type' => 'cash', 'chart_of_account_id' => $chart->id, 'opening_balance' => '15.00', 'opening_date' => $closed], 'opening_date'],
-            ['inventory.adjustments.store', ['kind' => 'opening', 'product_id' => $product->id, 'warehouse_id' => $warehouse->id, 'quantity' => '1', 'unit_cost' => '10.0000', 'transaction_date' => $closed, 'reason' => 'Late count'], 'transaction_date'],
-            ['inventory.purchases.store', ['supplier_id' => $supplier->id, 'warehouse_id' => $warehouse->id, 'transaction_date' => $closed, 'paid_amount' => '0.00', 'items' => [['product_id' => $product->id, 'quantity' => '1', 'unit_cost' => '40.00']]], 'transaction_date'],
+            ['inventory.purchases.store', ['supplier_id' => $supplier->id, 'transaction_date' => $closed, 'paid_amount' => '0.00', 'items' => [['product_id' => $product->id, 'quantity' => '1', 'unit_cost' => '40.00']]], 'transaction_date'],
             ['inventory.returns.store', ['purchase_id' => $purchase->id, 'transaction_date' => $closed, 'items' => [['purchase_item_id' => $purchase->items->first()->id, 'quantity' => '1']]], 'transaction_date'],
             ['inventory.supplier-payments.store', ['supplier_id' => $supplier->id, 'financial_account_id' => $cash->id, 'payment_method' => 'cash', 'amount' => '10.00', 'payment_date' => $closed], 'payment_date'],
-            ['sales.orders.store', ['customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'transaction_date' => $closed, 'discount' => '0.00', 'delivery' => '0.00', 'paid_amount' => '0.00', 'items' => [['product_id' => $product->id, 'quantity' => '1', 'unit_price' => '180.00']]], 'transaction_date'],
-            ['sales.payments.store', ['sale_id' => $sale->id, 'financial_account_id' => $cash->id, 'payment_method' => 'cash', 'amount' => '10.00', 'payment_date' => $closed], 'payment_date'],
-            ['sales.refunds.store', ['sale_id' => $sale->id, 'financial_account_id' => $cash->id, 'payment_method' => 'cash', 'amount' => '10.00', 'transaction_date' => $closed], 'transaction_date'],
-            ['sales.cancellations.store', ['sale_id' => $sale->id, 'transaction_date' => $closed, 'reason' => 'Wrong day'], 'transaction_date'],
-            ['sales.returns.store', ['sale_id' => $sale->id, 'transaction_date' => $closed, 'items' => [['sale_item_id' => $sale->items->first()->id, 'quantity' => '1']]], 'transaction_date'],
+            ['sales.store', ['source' => 'website', 'amount' => '180.00', 'transaction_date' => $closed, 'payment_method' => 'cash', 'financial_account_id' => $cash->id], 'transaction_date'],
             ['promotions.contributions.store', ['promotion' => $promotion, 'partner_id' => $partner->id, 'funded_by' => 'partner', 'amount' => '50.00', 'transaction_date' => $closed], 'transaction_date'],
         ];
 

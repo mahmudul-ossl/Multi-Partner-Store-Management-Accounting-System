@@ -15,14 +15,13 @@ use App\Support\Money;
 use Illuminate\Support\Carbon;
 
 /**
- * One month (or a custom range) assembled from the ledger and the stock ledger.
+ * One month (or a custom range) assembled from the ledger.
  */
 final class MonthlyReport
 {
     public function __construct(
         private readonly FinancialStatementService $statements,
         private readonly LedgerSlice $ledger,
-        private readonly StockValuation $stock,
     ) {}
 
     /**
@@ -36,7 +35,7 @@ final class MonthlyReport
         $figures = [
             $this->figure('sales', 'Sales', $profit['total_revenue']['amount']),
             $this->figure('purchases', 'Purchases', $this->ledger->sourceNet(
-                ChartAccountCode::Inventory,
+                ChartAccountCode::Cogs,
                 [Purchase::class, PurchaseReturn::class],
                 $from,
                 $to,
@@ -48,8 +47,6 @@ final class MonthlyReport
             $this->figure('net_profit', 'Net profit', $profit['net_profit']['amount']),
             $this->figure('opening_cash', 'Opening cash', $this->ledger->typedBalanceAsOf(FinancialAccountType::Cash, $openingDay)),
             $this->figure('closing_cash', 'Closing cash', $this->ledger->typedBalanceAsOf(FinancialAccountType::Cash, $to)),
-            $this->figure('opening_stock', 'Opening stock', $this->stock->asOf($openingDay)),
-            $this->figure('closing_stock', 'Closing stock', $this->stock->asOf($to)),
             $this->figure('investment', 'Investment', $this->ledger->sourceNet(
                 ChartAccountCode::PartnerCapital,
                 [PartnerInvestment::class],
@@ -65,7 +62,6 @@ final class MonthlyReport
                 false,
             )),
             $this->figure('promotion', 'Promotion', $this->ledger->net(ChartAccountCode::PromotionExpense, $from, $to, false)),
-            $this->figure('receivables', 'Accounts receivable', $this->ledger->balanceAsOf(ChartAccountCode::AccountsReceivable, $to, true)),
             $this->figure('payables', 'Accounts payable', $this->ledger->balanceAsOf(ChartAccountCode::AccountsPayable, $to, false)),
         ];
 

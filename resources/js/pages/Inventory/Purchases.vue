@@ -9,7 +9,6 @@ import StatusBadge from '../../Components/StatusBadge.vue';
 const props = defineProps({
     purchases: { type: Object, required: true },
     suppliers: { type: Array, required: true },
-    warehouses: { type: Array, required: true },
     products: { type: Array, required: true },
     accounts: { type: Array, required: true },
     methods: { type: Array, required: true },
@@ -19,7 +18,6 @@ const props = defineProps({
 const showForm = ref(false);
 const form = useForm({
     supplier_id: props.suppliers[0]?.id || '',
-    warehouse_id: props.warehouses[0]?.id || '',
     transaction_date: '',
     paid_amount: '0.00',
     payment_method: '',
@@ -42,7 +40,7 @@ function submit() {
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Purchases</h1>
-                <p class="mt-1 text-sm text-slate-500">Stock and the inventory journal post only after the purchase is fully approved.</p>
+                <p class="mt-1 text-sm text-slate-500">Product buy log. Cash or payable and purchase expense post after approval.</p>
             </div>
             <button v-if="can.create" class="btn btn-primary" type="button" @click="showForm = true">New purchase</button>
         </div>
@@ -90,12 +88,6 @@ function submit() {
                         <label class="label">Supplier</label>
                         <select v-model="form.supplier_id" class="field" required>
                             <option v-for="row in suppliers" :key="row.id" :value="row.id">{{ row.name }}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label">Warehouse</label>
-                        <select v-model="form.warehouse_id" class="field" required>
-                            <option v-for="row in warehouses" :key="row.id" :value="row.id">{{ row.name }}</option>
                         </select>
                     </div>
                     <div>

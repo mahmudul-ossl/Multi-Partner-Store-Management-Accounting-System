@@ -14,7 +14,7 @@ defineProps({
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-                <p class="mt-1 text-sm text-slate-500">Cards and charts follow your permissions. Money figures come from the ledger. Inventory value is on-hand quantity times weighted average cost.</p>
+                <p class="mt-1 text-sm text-slate-500">Cards and charts follow your permissions. Money figures come from the ledger.</p>
             </div>
         </div>
 

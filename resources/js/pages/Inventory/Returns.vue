@@ -11,7 +11,7 @@ defineProps({
 <template>
     <AppLayout title="Purchase returns">
         <h1 class="text-2xl font-semibold tracking-tight">Purchase returns</h1>
-        <p class="mt-1 text-sm text-slate-500">Returns reduce stock and accounts payable after approval.</p>
+        <p class="mt-1 text-sm text-slate-500">Returns reverse purchase expense and the amount due after approval.</p>
 
         <section class="card mt-6 overflow-hidden">
             <table class="min-w-full text-left text-sm">

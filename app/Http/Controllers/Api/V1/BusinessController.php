@@ -17,14 +17,14 @@ use App\Http\Requests\Inventory\ProductRequest;
 use App\Http\Requests\Inventory\PurchaseRequest;
 use App\Http\Requests\Partners\StorePartnerRequest;
 use App\Http\Requests\Partners\UpdatePartnerRequest;
-use App\Http\Requests\Sales\SaleRequest;
+use App\Http\Requests\Sales\SalesIncomeRequest;
 use App\Models\ApprovalRequest;
 use App\Models\Partner;
 use App\Models\PartnerInvestment;
 use App\Models\PartnerWithdrawal;
 use App\Models\Product;
 use App\Models\Purchase;
-use App\Models\Sale;
+use App\Models\SalesIncome;
 use App\Services\Approvals\ApprovalDirectory;
 use App\Services\Approvals\ApprovalService;
 use App\Services\Finance\InvestmentService;
@@ -33,7 +33,7 @@ use App\Services\Finance\WithdrawalService;
 use App\Services\Inventory\CatalogService;
 use App\Services\Purchasing\PurchaseService;
 use App\Services\Reports\MonthlyReport;
-use App\Services\Sales\SaleService;
+use App\Services\Sales\SalesIncomeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -178,19 +178,19 @@ class BusinessController extends Controller
 
     public function sales(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', Sale::class);
+        $this->authorize('viewAny', SalesIncome::class);
 
-        return response()->json(Sale::query()->latest('transaction_date')->limit(50)->get(['id', 'reference', 'customer_id', 'total', 'due_amount', 'status']));
+        return response()->json(SalesIncome::query()->latest('transaction_date')->limit(50)->get(['id', 'reference', 'source', 'amount', 'status']));
     }
 
-    public function storeSale(SaleRequest $request, SaleService $sales): JsonResponse
+    public function storeSale(SalesIncomeRequest $request, SalesIncomeService $incomes): JsonResponse
     {
-        $sale = $sales->create($request->user(), $request->validated());
+        $income = $incomes->create($request->user(), $request->validated());
 
         return response()->json([
-            'id' => $sale->id,
-            'reference' => $sale->reference,
-            'status' => $sale->status->value,
+            'id' => $income->id,
+            'reference' => $income->reference,
+            'status' => $income->status->value,
         ], 201);
     }
 

@@ -26,12 +26,13 @@ use App\Support\ChartAccountCode;
 use App\Support\Money;
 use App\Support\ReportWindow;
 use Carbon\Carbon;
+use Database\Seeders\DemoPartnershipSeeder;
 
 class StatementsTest extends FinanceTestCase
 {
     public function test_seeded_ledger_statements_balance(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
 
         $statements = app(FinancialStatementService::class);
         $report = $statements->profitAndLoss('2026-01-01', '2026-12-31');
@@ -74,7 +75,7 @@ class StatementsTest extends FinanceTestCase
         $this->assertSame(DocumentStatus::Approved, $allocation->status);
         $this->assertJournalBalances($allocation->journalEntry);
         $this->assertSame('2026-05-31', app(PeriodGuard::class)->closedThrough());
-        $this->assertSame('1150.00', (string) FinancialAccount::query()->where('name', 'Cash')->firstOrFail()->current_balance);
+        $this->assertSame('1980.00', (string) FinancialAccount::query()->where('name', 'Cash')->firstOrFail()->current_balance);
 
         $viewer = User::query()->where('email', 'viewer@mpstore.test')->firstOrFail();
         $this->actingAs($viewer)

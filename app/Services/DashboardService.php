@@ -15,9 +15,7 @@ use App\Models\User;
 use App\Services\Accounting\FinancialStatementService;
 use App\Services\Approvals\ApprovalDirectory;
 use App\Services\Finance\PartnerStatementService;
-use App\Services\Inventory\StockQuery;
 use App\Services\Reports\LedgerSlice;
-use App\Services\Reports\StockValuation;
 use App\Support\ChartAccountCode;
 use App\Support\DashboardCache;
 use App\Support\Format;
@@ -32,8 +30,6 @@ final class DashboardService
         private readonly ApprovalDirectory $approvals,
         private readonly FinancialStatementService $statements,
         private readonly LedgerSlice $ledger,
-        private readonly StockValuation $stock,
-        private readonly StockQuery $stockQuery,
         private readonly PartnerStatementService $partnerStatements,
     ) {}
 
@@ -64,30 +60,25 @@ final class DashboardService
             || $actor->can(PermissionName::PartnerWithdrawalApprove->value)
             || $actor->can(PermissionName::PartnerTransferApprove->value);
         $canSeeSales = $actor->can(PermissionName::SaleView->value);
-        $canSeeStock = $actor->can(PermissionName::StockView->value);
         $canSeeExpenses = $actor->can(PermissionName::ExpenseView->value);
         $canSeeProfit = $actor->can(PermissionName::ProfitLossView->value);
         $canSeeInvestment = $actor->can(PermissionName::PartnerInvestmentView->value);
         $canSeeWithdrawal = $actor->can(PermissionName::PartnerWithdrawalView->value);
         $canSeePromotion = $actor->can(PermissionName::PromotionView->value);
         $canSeePayables = $actor->can(PermissionName::PurchaseView->value) || $canSeeCash;
-        $canSeeReceivables = $canSeeSales || $canSeeCash;
         $today = now()->toDateString();
         $profit = ($canSeeProfit || $canSeeExpenses) ? $this->statements->profitAndLoss('2000-01-01', $today) : null;
 
         $cards = array_values(array_filter([
             $this->card('sales', 'Total sales', $canSeeSales, $canSeeSales ? $this->ledger->net(ChartAccountCode::ProductSales, null, null, true) : '0.00'),
             $this->card('investment', 'Investment', $canSeeInvestment, $canSeeInvestment ? $this->investment($actor) : '0.00'),
-            $this->card('inventory_value', 'Inventory value', $canSeeStock, $canSeeStock ? $this->stock->current() : '0.00'),
             $this->card('expenses', 'Expenses', $canSeeExpenses, $profit['total_expenses']['amount'] ?? '0.00'),
             $this->card('gross_profit', 'Gross profit', $canSeeProfit, $profit['gross_profit']['amount'] ?? '0.00'),
             $this->card('net_profit', 'Net profit', $canSeeProfit, $profit['net_profit']['amount'] ?? '0.00'),
             $this->card('cash', 'Cash', $canSeeCash, $canSeeCash ? $this->ledger->typedBalanceAsOf(FinancialAccountType::Cash, $today) : '0.00'),
             $this->card('bank', 'Bank', $canSeeCash, $canSeeCash ? $this->ledger->typedBalanceAsOf(FinancialAccountType::Bank, $today) : '0.00'),
-            $this->card('receivables', 'Accounts receivable', $canSeeReceivables, $canSeeReceivables ? $this->ledger->balanceAsOf(ChartAccountCode::AccountsReceivable, $today, true) : '0.00'),
             $this->card('payables', 'Accounts payable', $canSeePayables, $canSeePayables ? $this->ledger->balanceAsOf(ChartAccountCode::AccountsPayable, $today, false) : '0.00'),
             $this->card('pending_approvals', 'Pending approvals', $canSeeApprovals, (string) ($canSeeApprovals ? $this->approvals->countActionable($actor) : 0), false),
-            $this->card('low_stock', 'Low stock', $canSeeStock, (string) ($canSeeStock ? count($this->stockQuery->lowStock()) : 0), false),
         ], fn (array $card): bool => $card['show']));
 
         return [
@@ -120,10 +111,8 @@ final class DashboardService
             'pending_approvals' => $canSeeApprovals ? $this->approvals->countActionable($actor) : null,
             'show_sales' => $canSeeSales,
             'sales' => $canSeeSales ? Money::of($this->ledger->net(ChartAccountCode::ProductSales, null, null, true))->formatted() : null,
-            'show_inventory' => $canSeeStock,
-            'inventory_value' => $canSeeStock ? Money::of($this->stock->current())->formatted() : null,
             'cards' => $cards,
-            'charts' => $this->charts($canSeeSales, $canSeeProfit, $canSeeInvestment && ! $this->partners->restrictsToOwnRecord($actor), $canSeeWithdrawal && ! $this->partners->restrictsToOwnRecord($actor), $canSeeExpenses, $canSeePromotion, $canSeeStock),
+            'charts' => $this->charts($canSeeSales, $canSeeProfit, $canSeeInvestment && ! $this->partners->restrictsToOwnRecord($actor), $canSeeWithdrawal && ! $this->partners->restrictsToOwnRecord($actor), $canSeeExpenses, $canSeePromotion),
         ];
     }
 
@@ -170,7 +159,6 @@ final class DashboardService
         bool $withdrawal,
         bool $expenses,
         bool $promotion,
-        bool $stock,
     ): array {
         $months = [];
         $cursor = CarbonImmutable::now()->startOfMonth();
@@ -188,7 +176,6 @@ final class DashboardService
                 'promotion' => $this->ledger->net(ChartAccountCode::PromotionExpense, $from, $to, false),
                 'investment' => $this->ledger->sourceNet(ChartAccountCode::PartnerCapital, [PartnerInvestment::class], $from, $to, true),
                 'withdrawal' => $this->ledger->sourceNet(ChartAccountCode::PartnerWithdrawals, [PartnerWithdrawal::class], $from, $to, false),
-                'stock' => $stock ? $this->stock->asOf($to) : '0.00',
             ];
         }
 
@@ -199,7 +186,6 @@ final class DashboardService
             $withdrawal ? $this->series('withdrawal', 'Monthly withdrawal', $months, 'withdrawal') : null,
             $expenses ? $this->series('expenses', 'Monthly expenses', $months, 'expenses') : null,
             $promotion ? $this->series('promotion', 'Monthly promotion', $months, 'promotion') : null,
-            $stock ? $this->series('stock', 'Stock value', $months, 'stock') : null,
         ]));
 
         return $series;

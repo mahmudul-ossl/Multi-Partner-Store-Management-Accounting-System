@@ -20,9 +20,6 @@ final class ReportCatalog
         return [
             self::entry('sales', 'Sales', PermissionName::SaleView),
             self::entry('purchases', 'Purchases', PermissionName::PurchaseView),
-            self::entry('product-sales', 'Product sales', PermissionName::SaleView),
-            self::entry('stock', 'Stock', PermissionName::StockView),
-            self::entry('stock-movements', 'Stock movements', PermissionName::StockView),
             self::entry('investments', 'Investments', PermissionName::PartnerInvestmentView),
             self::entry('withdrawals', 'Withdrawals', PermissionName::PartnerWithdrawalView),
             self::entry('partner-statement', 'Partner statement', PermissionName::PartnerStatementView),
@@ -31,7 +28,6 @@ final class ReportCatalog
             self::entry('expenses', 'Expenses', PermissionName::ExpenseView),
             self::entry('cash', 'Cash', PermissionName::AccountingView),
             self::entry('bank', 'Bank', PermissionName::AccountingView),
-            self::entry('receivables', 'Accounts receivable', PermissionName::SaleView),
             self::entry('payables', 'Accounts payable', PermissionName::PurchaseView),
             self::entry('profit-loss', 'Profit and loss', PermissionName::ProfitLossView),
             self::entry('balance-sheet', 'Balance sheet', PermissionName::BalanceSheetView),

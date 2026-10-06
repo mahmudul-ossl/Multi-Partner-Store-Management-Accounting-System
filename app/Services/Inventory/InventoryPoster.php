@@ -68,25 +68,11 @@ final class InventoryPoster
 
     private function purchase(Purchase $document, User $actor): JournalEntry
     {
-        $document->load('items.product', 'warehouse', 'financialAccount.chartOfAccount');
-
-        foreach ($document->items as $item) {
-            $this->inventory->apply(
-                $item->product,
-                $document->warehouse,
-                StockMovementType::Purchase,
-                (string) $item->quantity,
-                (string) $item->unit_cost,
-                $document,
-                $actor,
-                $document->transaction_date->toDateString(),
-                $document->reference,
-            );
-        }
+        $document->load('items.product', 'financialAccount.chartOfAccount');
 
         $description = 'Purchase '.$document->reference;
         $lines = [[
-            'account_code' => ChartAccountCode::Inventory,
+            'account_code' => ChartAccountCode::Cogs,
             'supplier_id' => $document->supplier_id,
             'debit' => (string) $document->total,
             'credit' => '0.00',
@@ -124,21 +110,7 @@ final class InventoryPoster
 
     private function purchaseReturn(PurchaseReturn $document, User $actor): JournalEntry
     {
-        $document->load('items.product', 'warehouse', 'purchase');
-
-        foreach ($document->items as $item) {
-            $this->inventory->apply(
-                $item->product,
-                $document->warehouse,
-                StockMovementType::PurchaseReturn,
-                (string) $item->quantity,
-                (string) $item->unit_cost,
-                $document,
-                $actor,
-                $document->transaction_date->toDateString(),
-                $document->reference,
-            );
-        }
+        $document->load('items.product', 'purchase');
 
         $purchase = Purchase::query()->whereKey($document->purchase_id)->lockForUpdate()->firstOrFail();
         $purchase->due_amount = Money::of((string) $purchase->due_amount)->sub((string) $document->total)->amount();
@@ -156,7 +128,7 @@ final class InventoryPoster
                 'description' => $description,
             ],
             [
-                'account_code' => ChartAccountCode::Inventory,
+                'account_code' => ChartAccountCode::Cogs,
                 'supplier_id' => $document->supplier_id,
                 'debit' => '0.00',
                 'credit' => (string) $document->total,

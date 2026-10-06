@@ -12,6 +12,7 @@ use App\Models\PartnerWithdrawal;
 use App\Models\User;
 use App\Services\Finance\PartnerProfileService;
 use App\Support\Money;
+use Database\Seeders\DemoPartnershipSeeder;
 use ZipArchive;
 
 class PartnerProfileTest extends FinanceTestCase
@@ -233,7 +234,7 @@ class PartnerProfileTest extends FinanceTestCase
 
     public function test_seeded_profile_matches_the_ledger_and_shares_sum_to_100_percent(): void
     {
-        $this->seed();
+        $this->seed(DemoPartnershipSeeder::class);
 
         $rahim = Partner::query()->where('partner_code', 'P-0001')->firstOrFail();
         $fatema = Partner::query()->where('partner_code', 'P-0002')->firstOrFail();

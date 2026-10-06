@@ -16,7 +16,9 @@ class PurchaseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $response = Gate::inspect('create', Purchase::class);
+        $response = $this->isMethod('POST')
+            ? Gate::inspect('create', Purchase::class)
+            : Gate::inspect('update', $this->route('purchase'));
 
         if ($response->denied()) {
             throw new AuthorizationException($response->message() ?: 'This action is unauthorized.');
@@ -31,7 +33,7 @@ class PurchaseRequest extends FormRequest
             $this->merge(['paid_amount' => '0.00']);
         }
 
-        foreach (['payment_method', 'financial_account_id', 'note'] as $field) {
+        foreach (['payment_method', 'financial_account_id', 'note', 'warehouse_id'] as $field) {
             if ($this->input($field) === '') {
                 $this->merge([$field => null]);
             }
@@ -45,7 +47,7 @@ class PurchaseRequest extends FormRequest
     {
         return [
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
-            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'transaction_date' => ['required', 'date', new OpenAccountingPeriod],
             'paid_amount' => ['required', 'regex:/^\d+(\.\d{1,2})?$/'],
             'payment_method' => ['nullable', Rule::enum(PaymentMethod::class)],
