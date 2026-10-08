@@ -1,0 +1,94 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PHP_VERSION: '8.3'
+  NODE_VERSION: '22'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, bcmath, pdo_sqlite, pdo_mysql, redis
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: php artisan test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, bcmath, pdo_mysql, redis
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build
+
+      # Tracked files only, plus vendor/ and the Vite build. The tracked SQLite file is left out.
+      - name: Package release
+        run: |
+          git archive --format=tar -o release.tar HEAD
+          tar --delete -f release.tar mpstore .github tests || true
+          tar -rf release.tar vendor public/build
+          gzip -9 release.tar
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONFIG
+          Host deploy
+            HostName ${{ secrets.SSH_HOST }}
+            Port ${{ secrets.SSH_PORT || '22' }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+          CONFIG
+
+      - name: Upload release
+        run: scp release.tar.gz scripts/deploy/cyberpanel-deploy.sh deploy:/tmp/
+
+      - name: Activate release
+        run: |
+          ssh deploy "DEPLOY_PATH='${{ vars.DEPLOY_PATH }}' PHP_BIN='${{ vars.PHP_BIN || '/usr/local/lsws/lsphp83/bin/php' }}' \
+            bash /tmp/cyberpanel-deploy.sh /tmp/release.tar.gz '${{ github.sha }}'"
