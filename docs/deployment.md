@@ -39,6 +39,10 @@ The Dockerfile still has a `development` target (PHP plus the Composer binary on
 
 Production runs from `docker-compose.prod.yml`. It uses the same image: Composer installs dependencies without dev packages, Node builds the Vite assets, and PHP-FPM workers run as `www-data` with OPcache timestamps frozen. The entrypoint starts as root to chown the storage and secrets volumes. PHP-FPM's master process stays root, which is what the official image expects; the FPM pool, migrations, queue worker, and scheduler run as `www-data`. Nginx is a separate image that serves `public/`. MySQL is not published to the host. `SEED_ON_BOOT=false`, so a restart never reloads demo data. A queue worker and a scheduler run beside PHP-FPM and wait for the app container to finish migrating.
 
+## CyberPanel
+
+To deploy to a CyberPanel (OpenLiteSpeed) subdomain without Docker, use the GitHub Actions pipeline described in [deployment-cyberpanel.md](deployment-cyberpanel.md).
+
 ## Environment
 
 Copy `.env.example` to `.env` and set every secret before the first production boot. Quote any value that contains `#` or a space. The local Compose file does not read this file.
